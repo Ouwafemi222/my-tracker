@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-emerald-brand: #059669;
   --color-emerald-brand-light: #ecfdf5;
@@ -17,6 +19,11 @@ body {
   background-color: #ffffff;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
+}
+
+html.dark body {
+  background-color: #020617;
+  color: #f1f5f9;
 }
 
 #root {

@@ -9,6 +9,7 @@ import {
 import { formatLagosDateTime, toLagosDateString } from '../utils/dates'
 import { formatKoboAsNaira } from '../utils/money'
 import { categoriesForType } from '../utils/categories'
+import { downloadCsv, transactionsToCsv } from '../utils/csv'
 
 const ALL_TYPES: TransactionType[] = [
   'earned_income',
@@ -150,9 +151,24 @@ export function HistoryPage() {
         </div>
       ) : null}
 
-      <p className="text-sm text-slate-600">
-        Showing {filtered.length} of {transactions.length} transactions
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Showing {filtered.length} of {transactions.length} transactions
+        </p>
+        <button
+          type="button"
+          disabled={filtered.length === 0}
+          onClick={() =>
+            downloadCsv(
+              `gratitude-expenses-export-${new Date().toISOString().slice(0, 10)}.csv`,
+              transactionsToCsv(filtered),
+            )
+          }
+          className="rounded-lg border border-emerald-600 px-3 py-1.5 text-sm font-semibold text-emerald-700 enabled:hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-400 dark:enabled:hover:bg-emerald-950"
+        >
+          Export filtered CSV
+        </button>
+      </div>
 
       {filtered.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">

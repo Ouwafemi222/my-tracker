@@ -50,9 +50,16 @@ Calculation rules are covered by unit tests in `src/utils/calculations.test.ts`.
 - JSON backup export and restore
 - Optional demo data (empty records by default)
 
-### Version 2
+### Version 2 (current branch)
 
-See the `version-2` branch for charts, budgets, CSV export, light/dark mode, period summaries, and Version 1 backup import.
+- Upgraded dashboard with daily, weekly, monthly, and custom period summaries
+- Income vs spending bar chart and spending-by-category pie chart
+- Monthly expense budget with progress, remaining amount, and overspend alert
+- CSV export of filtered transactions from History
+- JSON backup/restore including settings (budget + theme)
+- Deliberate import of Version 1 JSON backups into Version 2 storage
+- Light and dark modes
+- Separate localStorage key: `gratitude-expenses-v2`
 
 ## Calculation rules
 
