@@ -2,7 +2,11 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { IncomeVsSpendingChart } from '../components/charts/IncomeVsSpendingChart'
 import { SpendingByCategoryChart } from '../components/charts/SpendingByCategoryChart'
+import { LedgerFilterBar } from '../components/LedgerFilterBar'
+import { MonthWallet } from '../components/MonthWallet'
+import { TransactionReceipt } from '../components/TransactionReceipt'
 import { SummaryCard } from '../components/SummaryCard'
+import { useLedgerFilter } from '../context/LedgerFilterContext'
 import { useTransactions } from '../context/TransactionContext'
 import { TRANSACTION_TYPE_LABELS, type Transaction } from '../types/transaction'
 import {
@@ -16,6 +20,8 @@ import {
   todayLagosDateString,
 } from '../utils/dates'
 import { formatKoboAsNaira, parseNairaToKoboAllowZero } from '../utils/money'
+import { readAlert } from '../utils/alertDetails'
+import { bankFromAccount, formatMinorAmount } from '../utils/banks'
 import { getAppBranding } from '../config/appVariant'
 import { formatFriendlyPeriodLabel, lagosGreeting } from '../utils/greeting'
 import {
@@ -45,14 +51,17 @@ function composePeriodSummary(
 
 export function ProDashboardPage() {
   const brand = getAppBranding()
-  const { transactions, loadDemoData, settings, setMonthlyBudgetKobo } =
-    useTransactions()
+  const { loadDemoData, settings, setMonthlyBudgetKobo } = useTransactions()
+  const { visibleTransactions } = useLedgerFilter()
+  const transactions = visibleTransactions
+  const activeCurrency = 'NGN' as const
   const [mode, setMode] = useState<PeriodMode>('daily')
   const [selectedDate, setSelectedDate] = useState(todayLagosDateString)
   const [month, setMonth] = useState(todayLagosDateString().slice(0, 7))
   const [customStart, setCustomStart] = useState(todayLagosDateString())
   const [customEnd, setCustomEnd] = useState(todayLagosDateString())
   const [budgetInput, setBudgetInput] = useState('')
+  const [open, setOpen] = useState<Transaction | null>(null)
 
   const period = useMemo(
     () =>
@@ -155,6 +164,9 @@ export function ProDashboardPage() {
 
   return (
     <div className="space-y-8">
+      {open ? <TransactionReceipt transaction={open} onClose={() => setOpen(null)} /> : null}
+      <MonthWallet />
+      <LedgerFilterBar />
       <section className="glass-card overflow-hidden rounded-3xl p-6 shadow-sm ring-1 ring-emerald-500/20 sm:p-8">
         <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
           {lagosGreeting()}
@@ -176,7 +188,7 @@ export function ProDashboardPage() {
                   : 'text-rose-600 dark:text-rose-400'
               }`}
             >
-              {formatKoboAsNaira(totals.netCashFlowKobo)}
+              {formatMinorAmount(totals.netCashFlowKobo, activeCurrency)}
             </p>
             <p className="mt-1 text-xs text-slate-500">For the selected period</p>
           </div>
@@ -281,24 +293,33 @@ export function ProDashboardPage() {
           subtitle="Money in minus money out"
           highlight="net"
           large
+          currency={activeCurrency}
         />
-        <SummaryCard title="Earned income" amountKobo={totals.earnedIncomeKobo} highlight="in" />
+        <SummaryCard
+          title="Earned income"
+          amountKobo={totals.earnedIncomeKobo}
+          highlight="in"
+          currency={activeCurrency}
+        />
         <SummaryCard
           title="Other money received"
           amountKobo={totals.otherReceivedKobo}
           highlight="in"
+          currency={activeCurrency}
         />
         <SummaryCard
           title="Total money in"
           amountKobo={totals.totalMoneyInKobo}
           subtitle="Earned + other (transfers excluded)"
           highlight="in"
+          currency={activeCurrency}
         />
         <SummaryCard
           title="Total money out"
           amountKobo={totals.totalMoneyOutKobo}
           subtitle="Expenses only"
           highlight="out"
+          currency={activeCurrency}
         />
       </div>
 
@@ -412,12 +433,23 @@ export function ProDashboardPage() {
             {recent.map((t) => (
               <li
                 key={t.id}
-                className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                role="button"
+                tabIndex={0}
+                onClick={() => setOpen(t)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    setOpen(t)
+                  }
+                }}
+                className="flex cursor-pointer flex-col gap-1 px-4 py-3 hover:bg-emerald-50/70 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-emerald-950/40"
               >
                 <div>
                   <p className="font-medium text-slate-900 dark:text-white">
                     {TRANSACTION_TYPE_LABELS[t.type]}
-                    {t.description ? ` · ${t.description}` : ''}
+                    {readAlert(t.description, t.counterparty).narration
+                      ? ` · ${readAlert(t.description, t.counterparty).narration}`
+                      : ''}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {formatLagosDateTime(t.occurredAt)} · {t.category} · {t.account}
@@ -433,7 +465,10 @@ export function ProDashboardPage() {
                   }`}
                 >
                   {t.type === 'expense' ? '−' : t.type === 'internal_transfer' ? '' : '+'}
-                  {formatKoboAsNaira(t.amountKobo)}
+                  {formatMinorAmount(
+                    t.amountKobo,
+                    bankFromAccount(t.account)?.currency ?? 'NGN',
+                  )}
                 </p>
               </li>
             ))}

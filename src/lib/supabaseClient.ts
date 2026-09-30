@@ -7,7 +7,7 @@ let initFailed = false
 export function getSupabase(): SupabaseClient | null {
   if (initFailed) return null
   const cfg = getSupabaseConfig()
-  if (!cfg) return null
+  if (!cfg?.url || !cfg.anonKey) return null
   if (!client) {
     try {
       client = createClient(cfg.url, cfg.anonKey, {

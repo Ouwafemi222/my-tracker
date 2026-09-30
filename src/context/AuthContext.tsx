@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { getSupabase } from '../lib/supabaseClient'
-import { isSupabaseConfigured } from '../lib/supabaseEnv'
+import { getSupabaseConfigIssue } from '../lib/supabaseEnv'
 import { ensureProfileForUser, fetchProfile, updateDisplayName } from '../services/profileService'
 import type { UserProfile } from '../types/profile'
 
@@ -31,9 +31,11 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+const AWAY_MS = 5 * 60 * 1000
+const LEFT_AT_KEY = 'gratitude-left-at'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const authRequired = isSupabaseConfigured()
+  const authRequired = true
   const [loading, setLoading] = useState(authRequired)
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
@@ -92,7 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const supabase = getSupabase()
-    if (!supabase) return { ok: false as const, error: 'Cloud sign-in is not configured.' }
+    if (!supabase) {
+      return {
+        ok: false as const,
+        error:
+          getSupabaseConfigIssue() ??
+          'Cloud sign-in is not configured.',
+      }
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return { ok: false as const, error: error.message }
@@ -122,8 +131,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     const supabase = getSupabase()
     if (supabase) await supabase.auth.signOut()
+    setSession(null)
+    setUser(null)
     setProfile(null)
+    sessionStorage.removeItem(LEFT_AT_KEY)
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+
+    let timer = 0
+
+    const clearTimer = () => {
+      if (timer) window.clearTimeout(timer)
+      timer = 0
+    }
+
+    const signOutIfAwayTooLong = () => {
+      const leftAt = Number(sessionStorage.getItem(LEFT_AT_KEY) || 0)
+      if (leftAt && Date.now() - leftAt >= AWAY_MS) {
+        sessionStorage.removeItem(LEFT_AT_KEY)
+        void signOut()
+        return true
+      }
+      return false
+    }
+
+    const markAway = () => {
+      if (!sessionStorage.getItem(LEFT_AT_KEY)) {
+        sessionStorage.setItem(LEFT_AT_KEY, String(Date.now()))
+      }
+      clearTimer()
+      timer = window.setTimeout(() => {
+        void signOut()
+      }, AWAY_MS)
+    }
+
+    const markBack = () => {
+      if (signOutIfAwayTooLong()) return
+      sessionStorage.removeItem(LEFT_AT_KEY)
+      clearTimer()
+    }
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') markAway()
+      else markBack()
+    }
+
+    if (document.visibilityState === 'hidden') markAway()
+    else signOutIfAwayTooLong()
+
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', markAway)
+
+    return () => {
+      clearTimer()
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', markAway)
+    }
+  }, [user, signOut])
 
   const refreshProfile = useCallback(async () => {
     if (!user) return

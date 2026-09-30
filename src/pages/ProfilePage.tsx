@@ -1,10 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useProfilePhoto } from '../lib/useProfilePhoto'
 
 export function ProfilePage() {
   const navigate = useNavigate()
   const { user, profile, saveDisplayName, signOut } = useAuth()
+  const { photo, upload, remove } = useProfilePhoto()
   const [name, setName] = useState(profile?.display_name ?? '')
 
   useEffect(() => {
@@ -39,8 +41,12 @@ export function ProfilePage() {
       </div>
 
       <div className="glass-card flex items-center gap-4 rounded-2xl p-6 ring-1 ring-slate-200/80 dark:ring-slate-700">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-2xl font-bold text-white shadow-md">
-          {initial}
+        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-[#1a3a2f] text-2xl font-bold text-[#d6ee7a] shadow-md">
+          {photo ? (
+            <img src={photo} alt="" className="h-full w-full object-cover" />
+          ) : (
+            initial
+          )}
         </div>
         <div>
           <p className="font-semibold text-slate-900 dark:text-white">
@@ -83,6 +89,36 @@ export function ProfilePage() {
             readOnly
           />
         </label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Balance photo
+          <input
+            type="file"
+            accept="image/*"
+            className="mt-1.5 block w-full text-sm"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              void upload(file).catch((err: unknown) => {
+                setMessage({
+                  type: 'err',
+                  text: err instanceof Error ? err.message : 'Could not save that photo',
+                })
+              })
+            }}
+          />
+        </label>
+        <p className="text-xs text-slate-500">
+          This photo sits behind the balance on the dashboard, like a phone banking screen.
+        </p>
+        {photo ? (
+          <button
+            type="button"
+            onClick={remove}
+            className="text-sm font-medium text-rose-700"
+          >
+            Remove photo
+          </button>
+        ) : null}
         <button
           type="submit"
           disabled={saving}

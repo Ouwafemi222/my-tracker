@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ProUpsellCard } from '../components/ProUpsellCard'
+import { LedgerFilterBar } from '../components/LedgerFilterBar'
+import { MonthWallet } from '../components/MonthWallet'
 import { SummaryCard } from '../components/SummaryCard'
+import { useLedgerFilter } from '../context/LedgerFilterContext'
 import { useTransactions } from '../context/TransactionContext'
 import { TRANSACTION_TYPE_LABELS } from '../types/transaction'
 import { totalsForLagosRange } from '../utils/calculations'
@@ -10,7 +13,8 @@ import { formatKoboAsNaira } from '../utils/money'
 import { formatFriendlyPeriodLabel, lagosGreeting } from '../utils/greeting'
 
 export function SimpleDashboardPage() {
-  const { transactions, loadDemoData } = useTransactions()
+  const { loadDemoData } = useTransactions()
+  const { visibleTransactions: transactions } = useLedgerFilter()
   const [selectedDate, setSelectedDate] = useState(todayLagosDateString)
 
   const dayTransactions = useMemo(
@@ -49,6 +53,8 @@ export function SimpleDashboardPage() {
 
   return (
     <div className="space-y-8">
+      <MonthWallet />
+      <LedgerFilterBar />
       <section className="glass-card overflow-hidden rounded-3xl p-6 shadow-sm ring-1 ring-emerald-500/20 sm:p-8">
         <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
           {lagosGreeting()}
