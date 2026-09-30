@@ -9,6 +9,9 @@ import {
 import { formatLagosDateTime, toLagosDateString } from '../utils/dates'
 import { formatKoboAsNaira } from '../utils/money'
 import { categoriesForType } from '../utils/categories'
+import { isProApp } from '../config/appVariant'
+import { UpgradeToProButton } from '../components/UpgradeToProButton'
+import { downloadCsv, transactionsToCsv } from '../utils/csv'
 
 const ALL_TYPES: TransactionType[] = [
   'earned_income',
@@ -69,13 +72,15 @@ export function HistoryPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Transaction history</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Search and filter records. Edits update dashboard totals immediately.
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          Activity
+        </h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Search, filter, edit, or export your transactions.
         </p>
       </div>
 
-      <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="glass-card grid gap-3 rounded-2xl p-4 sm:grid-cols-2 lg:grid-cols-3 ring-1 ring-slate-200/80 dark:ring-slate-700">
         <label className="text-xs font-medium text-slate-600 sm:col-span-2 lg:col-span-3">
           Search
           <input
@@ -150,9 +155,28 @@ export function HistoryPage() {
         </div>
       ) : null}
 
-      <p className="text-sm text-slate-600">
-        Showing {filtered.length} of {transactions.length} transactions
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Showing {filtered.length} of {transactions.length} transactions
+        </p>
+        {isProApp() ? (
+          <button
+            type="button"
+            disabled={filtered.length === 0}
+            onClick={() =>
+              downloadCsv(
+                `gratitude-expenses-export-${new Date().toISOString().slice(0, 10)}.csv`,
+                transactionsToCsv(filtered),
+              )
+            }
+            className="rounded-lg border border-emerald-600 px-3 py-1.5 text-sm font-semibold text-emerald-700 enabled:hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-400 dark:enabled:hover:bg-emerald-950"
+          >
+            Export CSV
+          </button>
+        ) : (
+          <UpgradeToProButton compact />
+        )}
+      </div>
 
       {filtered.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">

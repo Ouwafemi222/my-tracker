@@ -50,9 +50,16 @@ Calculation rules are covered by unit tests in `src/utils/calculations.test.ts`.
 - JSON backup export and restore
 - Optional demo data (empty records by default)
 
-### Version 2
+### Version 2 (current branch)
 
-See the `version-2` branch for charts, budgets, CSV export, light/dark mode, period summaries, and Version 1 backup import.
+- Upgraded dashboard with daily, weekly, monthly, and custom period summaries
+- Income vs spending bar chart and spending-by-category pie chart
+- Monthly expense budget with progress, remaining amount, and overspend alert
+- CSV export of filtered transactions from History
+- JSON backup/restore including settings (budget + theme)
+- Deliberate import of Version 1 JSON backups into Version 2 storage
+- Light and dark modes
+- Separate localStorage key: `gratitude-expenses-v2`
 
 ## Calculation rules
 
@@ -64,6 +71,10 @@ See the `version-2` branch for charts, budgets, CSV export, light/dark mode, per
 - **Internal transfers** between your own accounts are excluded from income and spending.
 
 Example: ₦50,000 earned + ₦5,000 other received − ₦12,000 expenses → **₦55,000** total inflows and **₦43,000** net cash flow. Internal transfers do not change those figures.
+
+## Supabase (optional cloud sync on `version-2`)
+
+When `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set in `.env.local`, the app signs in anonymously and syncs to PostgreSQL. See [supabase/README.md](./supabase/README.md) for enabling anonymous auth and running the SQL migration.
 
 ## Browser storage
 

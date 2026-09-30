@@ -2,9 +2,16 @@ import { useRef, useState } from 'react'
 import { useTransactions } from '../context/TransactionContext'
 
 export function DataPage() {
-  const { transactions, loadDemoData, clearAll, exportBackup, importBackup } =
-    useTransactions()
-  const fileRef = useRef<HTMLInputElement>(null)
+  const {
+    transactions,
+    loadDemoData,
+    clearAll,
+    exportBackup,
+    importBackupV2,
+    importBackupV1,
+  } = useTransactions()
+  const backupFileRef = useRef<HTMLInputElement>(null)
+  const legacyFileRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(
     null,
   )
@@ -15,26 +22,42 @@ export function DataPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `gratitude-expenses-v1-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `gratitude-expenses-backup-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
-    setMessage({ type: 'ok', text: 'Backup downloaded.' })
+    setMessage({ type: 'ok', text: 'Backup saved to your downloads folder.' })
   }
 
-  function handleImportFile(file: File) {
+  function restoreBackup(file: File) {
     const reader = new FileReader()
     reader.onload = () => {
-      const text = String(reader.result ?? '')
       const ok = window.confirm(
-        'Import will replace all current transactions in this browser with the backup. Continue?',
+        'Restore will replace your current transactions and preferences. Continue?',
       )
       if (!ok) return
-      const result = importBackup(text)
+      const result = importBackupV2(String(reader.result ?? ''))
       if (!result.ok) {
         setMessage({ type: 'err', text: result.error })
         return
       }
-      setMessage({ type: 'ok', text: 'Backup restored successfully.' })
+      setMessage({ type: 'ok', text: 'Your data was restored successfully.' })
+    }
+    reader.readAsText(file)
+  }
+
+  function importLegacy(file: File) {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const ok = window.confirm(
+        'Import this archive? Your current transaction list will be replaced.',
+      )
+      if (!ok) return
+      const result = importBackupV1(String(reader.result ?? ''))
+      if (!result.ok) {
+        setMessage({ type: 'err', text: result.error })
+        return
+      }
+      setMessage({ type: 'ok', text: 'Archive imported successfully.' })
     }
     reader.readAsText(file)
   }
@@ -42,107 +65,126 @@ export function DataPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Data & backup</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Optional demo data, export, and restore for Version 1 storage.
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          Settings
+        </h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Back up your records, restore from a file, or reset your activity.
         </p>
       </div>
 
       {message ? (
         <p
-          className={`rounded-lg px-3 py-2 text-sm ${
+          className={`rounded-xl px-4 py-3 text-sm ${
             message.type === 'ok'
-              ? 'bg-emerald-50 text-emerald-900'
-              : 'bg-rose-50 text-rose-900'
+              ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100'
+              : 'bg-rose-50 text-rose-900 dark:bg-rose-950 dark:text-rose-100'
           }`}
         >
           {message.text}
         </p>
       ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-slate-200 p-5">
-        <h3 className="font-semibold text-slate-900">Optional demo data</h3>
-        <p className="text-sm text-slate-600">
-          Loads sample transactions for today including ₦50,000 earned income, ₦5,000
-          other received, ₦12,000 expense, and an internal transfer that does not affect
-          totals.
-        </p>
-        <button
-          type="button"
-          disabled={transactions.length > 0}
-          onClick={() => {
-            if (transactions.length > 0) return
-            const ok = window.confirm('Load demo data? You can clear it later.')
-            if (ok) {
-              loadDemoData()
-              setMessage({ type: 'ok', text: 'Demo data loaded.' })
-            }
-          }}
-          className="rounded-lg border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 enabled:hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Load optional demo data
-        </button>
-        {transactions.length > 0 ? (
-          <p className="text-xs text-slate-500">
-            Demo loader is disabled while you have records. Clear data first if you need
-            a fresh demo set.
+      {transactions.length === 0 ? (
+        <section className="glass-card space-y-3 rounded-2xl p-6 ring-1 ring-slate-200/80 dark:ring-slate-700">
+          <h3 className="font-semibold text-slate-900 dark:text-white">New here?</h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Load a week of sample salary, shopping, and transfers to explore charts and summaries.
           </p>
-        ) : null}
-      </section>
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('Add sample transactions for today?')) {
+                loadDemoData()
+                setMessage({ type: 'ok', text: 'Sample activity added.' })
+              }
+            }}
+            className="rounded-full border border-emerald-600 px-5 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950"
+          >
+            Try sample activity
+          </button>
+        </section>
+      ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-slate-200 p-5">
-        <h3 className="font-semibold text-slate-900">JSON backup (Version 1)</h3>
-        <p className="text-sm text-slate-600">
-          Export all transactions. Version 2 can import this file deliberately when you
-          switch branches and open the upgraded app.
+      <section className="glass-card space-y-4 rounded-2xl p-6 ring-1 ring-slate-200/80 dark:ring-slate-700">
+        <h3 className="font-semibold text-slate-900 dark:text-white">Backup & restore</h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Download a secure copy of your transactions and preferences. You can restore it on any
+          browser.
         </p>
-        <button
-          type="button"
-          onClick={downloadBackup}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-        >
-          Download JSON backup
-        </button>
-        <div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={downloadBackup}
+            className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            Download backup
+          </button>
           <input
-            ref={fileRef}
+            ref={backupFileRef}
             type="file"
             accept="application/json,.json"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0]
-              if (f) handleImportFile(f)
+              if (f) restoreBackup(f)
               e.target.value = ''
             }}
           />
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            onClick={() => backupFileRef.current?.click()}
+            className="rounded-full border border-slate-300 px-5 py-2 text-sm font-medium hover:bg-white dark:border-slate-600 dark:hover:bg-slate-800"
           >
-            Restore from JSON backup
+            Restore from file
           </button>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-rose-200 bg-rose-50/50 p-5">
-        <h3 className="font-semibold text-rose-900">Clear all data</h3>
-        <p className="mt-1 text-sm text-rose-800">
-          Removes every transaction from this browser ({transactions.length} currently).
+      <section className="glass-card space-y-3 rounded-2xl p-6 ring-1 ring-slate-200/80 dark:ring-slate-700">
+        <h3 className="font-semibold text-slate-900 dark:text-white">Import older archive</h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Have a backup from an earlier export? Import it here.
+        </p>
+        <input
+          ref={legacyFileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) importLegacy(f)
+            e.target.value = ''
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => legacyFileRef.current?.click()}
+          className="rounded-full border border-slate-300 px-5 py-2 text-sm font-medium dark:border-slate-600"
+        >
+          Choose file to import
+        </button>
+      </section>
+
+      <section className="rounded-2xl border border-rose-200/80 bg-rose-50/60 p-6 dark:border-rose-900 dark:bg-rose-950/30">
+        <h3 className="font-semibold text-rose-900 dark:text-rose-200">Reset activity</h3>
+        <p className="mt-1 text-sm text-rose-800/90 dark:text-rose-300/90">
+          Removes all {transactions.length} transactions. Download a backup first if you may need
+          them later.
         </p>
         <button
           type="button"
           onClick={() => {
             if (
               window.confirm(
-                'Delete all transactions from this browser? Export a backup first if needed.',
+                'Delete all transactions? This cannot be undone unless you have a backup.',
               )
             ) {
               clearAll()
-              setMessage({ type: 'ok', text: 'All transactions cleared.' })
+              setMessage({ type: 'ok', text: 'All transactions were removed.' })
             }
           }}
-          className="mt-3 rounded-lg border border-rose-300 px-4 py-2 text-sm font-medium text-rose-800 hover:bg-white"
+          className="mt-4 rounded-full border border-rose-300 px-5 py-2 text-sm font-medium text-rose-800 hover:bg-white dark:border-rose-800 dark:text-rose-200"
         >
           Clear all transactions
         </button>

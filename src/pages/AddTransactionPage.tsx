@@ -15,43 +15,44 @@ export function AddTransactionPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Manual transaction entry</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Record earned income, other money received, expenses, or transfers between your
-          own accounts.
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          Record a transaction
+        </h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Log income, spending, or a transfer between your own accounts. Amounts are in naira (₦).
         </p>
       </div>
 
       {saved ? (
         <div
-          className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950"
+          className="glass-card rounded-2xl p-5 text-sm ring-2 ring-emerald-500/30"
           role="status"
         >
-          <p className="font-semibold">Transaction saved</p>
-          <p className="mt-1">
-            {saved.type} — {formatKoboAsNaira(saved.amountKobo)} recorded successfully.
+          <p className="font-semibold text-emerald-900 dark:text-emerald-200">Saved</p>
+          <p className="mt-1 text-slate-700 dark:text-slate-300">
+            {saved.type} · {formatKoboAsNaira(saved.amountKobo)}
           </p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setSaved(null)}
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+              className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
             >
-              Add another
+              Record another
             </button>
             <Link
               to="/"
-              className="rounded-lg border border-emerald-600 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-white"
+              className="rounded-full border border-emerald-600 px-4 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950"
             >
-              Go to dashboard
+              Back to overview
             </Link>
           </div>
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="glass-card rounded-2xl p-6 shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700">
         <TransactionForm
-          submitLabel="Save transaction"
+          submitLabel="Save"
           onSubmit={(payload) => {
             addTransaction(payload)
             setSaved({
