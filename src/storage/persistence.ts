@@ -40,9 +40,13 @@ export function saveTransactionsV1(transactions: Transaction[]): void {
   localStorage.setItem(V1_STORAGE_KEY, JSON.stringify(payload))
 }
 
-export function loadStoredV2(): StoredDataV2 {
+function v2StorageKey(userId?: string | null): string {
+  return userId ? `${V2_STORAGE_KEY}:${userId}` : V2_STORAGE_KEY
+}
+
+export function loadStoredV2(userId?: string | null): StoredDataV2 {
   try {
-    const raw = localStorage.getItem(V2_STORAGE_KEY)
+    const raw = localStorage.getItem(v2StorageKey(userId))
     if (!raw) {
       return { version: 2, transactions: [], settings: { ...DEFAULT_SETTINGS } }
     }
@@ -60,9 +64,12 @@ export function loadStoredV2(): StoredDataV2 {
   }
 }
 
-export function saveStoredV2(data: Omit<StoredDataV2, 'version'>): void {
+export function saveStoredV2(
+  data: Omit<StoredDataV2, 'version'>,
+  userId?: string | null,
+): void {
   const payload: StoredDataV2 = { version: 2, ...data }
-  localStorage.setItem(V2_STORAGE_KEY, JSON.stringify(payload))
+  localStorage.setItem(v2StorageKey(userId), JSON.stringify(payload))
 }
 
 export interface BackupPayloadV1 {

@@ -11,21 +11,72 @@
 
 html {
   font-family: var(--font-sans);
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   min-height: 100svh;
-  background-color: #ffffff;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
 }
 
 html.dark body {
-  background-color: #020617;
   color: #f1f5f9;
 }
 
 #root {
   min-height: 100svh;
+}
+
+.app-shell-bg {
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(5, 150, 105, 0.08), transparent);
+}
+
+html.dark .app-shell-bg {
+  background-color: #020617;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.15), transparent),
+    radial-gradient(ellipse 50% 30% at 0% 100%, rgba(5, 150, 105, 0.1), transparent);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.45s ease-out both;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1.8s ease-in-out infinite;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+}
+
+html.dark .glass-card {
+  background: rgba(15, 23, 42, 0.75);
 }

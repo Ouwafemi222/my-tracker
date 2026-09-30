@@ -4,13 +4,18 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "vite --mode pro",
+    "dev:simple": "vite --mode simple",
+    "dev:pro": "vite --mode pro --port 5174",
+    "build": "tsc -b && vite build --mode pro",
+    "build:simple": "tsc -b && vite build --mode simple",
+    "build:pro": "tsc -b && vite build --mode pro",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4",

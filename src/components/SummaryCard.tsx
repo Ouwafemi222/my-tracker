@@ -5,6 +5,7 @@ interface SummaryCardProps {
   amountKobo: number
   subtitle?: string
   highlight?: 'neutral' | 'in' | 'out' | 'net'
+  large?: boolean
 }
 
 export function SummaryCard({
@@ -12,15 +13,16 @@ export function SummaryCard({
   amountKobo,
   subtitle,
   highlight = 'neutral',
+  large = false,
 }: SummaryCardProps) {
   const ring =
     highlight === 'net'
-      ? 'ring-2 ring-emerald-500/40'
+      ? 'ring-2 ring-emerald-500/35 shadow-lg shadow-emerald-500/10'
       : highlight === 'in'
-        ? 'ring-1 ring-emerald-200 dark:ring-emerald-800'
+        ? 'ring-1 ring-emerald-200/80 dark:ring-emerald-800'
         : highlight === 'out'
-          ? 'ring-1 ring-rose-200 dark:ring-rose-900'
-          : 'ring-1 ring-slate-200 dark:ring-slate-700'
+          ? 'ring-1 ring-rose-200/80 dark:ring-rose-900'
+          : 'ring-1 ring-slate-200/80 dark:ring-slate-700'
 
   const valueColor =
     highlight === 'net'
@@ -31,14 +33,18 @@ export function SummaryCard({
 
   return (
     <article
-      className={`rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-900 ${ring}`}
+      className={`glass-card rounded-2xl p-5 shadow-sm transition hover:shadow-md ${ring} ${large ? 'sm:col-span-2 lg:col-span-1' : ''}`}
     >
       <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400">{title}</h3>
-      <p className={`mt-2 text-2xl font-bold tabular-nums ${valueColor}`}>
+      <p
+        className={`mt-2 font-bold tabular-nums tracking-tight ${valueColor} ${large ? 'text-3xl sm:text-4xl' : 'text-2xl'}`}
+      >
         {formatKoboAsNaira(amountKobo)}
       </p>
       {subtitle ? (
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">{subtitle}</p>
+        <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-500">
+          {subtitle}
+        </p>
       ) : null}
     </article>
   )

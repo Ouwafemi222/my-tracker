@@ -72,6 +72,10 @@ Calculation rules are covered by unit tests in `src/utils/calculations.test.ts`.
 
 Example: ₦50,000 earned + ₦5,000 other received − ₦12,000 expenses → **₦55,000** total inflows and **₦43,000** net cash flow. Internal transfers do not change those figures.
 
+## Supabase (optional cloud sync on `version-2`)
+
+When `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set in `.env.local`, the app signs in anonymously and syncs to PostgreSQL. See [supabase/README.md](./supabase/README.md) for enabling anonymous auth and running the SQL migration.
+
 ## Browser storage
 
 All records are saved in **this browser’s localStorage only**. Clearing site data, private browsing, or another device will not show the same records unless you export and restore a JSON backup.
