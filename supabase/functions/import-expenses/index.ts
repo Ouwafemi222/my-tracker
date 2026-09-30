@@ -1,50 +1,93 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { parseImportBatch } from './importExpensesCore.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-import-token',
+    'authorization, x-client-info, apikey, content-type, x-import-token, x-idempotency-key',
 }
 
-const VALID_TYPES = new Set([
-  'earned_income',
-  'other_income',
-  'expense',
-  'internal_transfer',
-])
+const MAX_ROWS = 200
+const SERVICE_VERSION = 2
 
-function parseNairaToKobo(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-    return Math.round(value * 100)
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim().replace(/,/g, '').replace(/₦/g, '')
-    if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) return null
-    const [whole, frac = ''] = trimmed.split('.')
-    const kobo = Number(whole) * 100 + Number((frac + '00').slice(0, 2))
-    return kobo > 0 ? kobo : null
+function newRequestId(): string {
+  return crypto.randomUUID()
+}
+
+function jsonResponse(
+  status: number,
+  body: Record<string, unknown>,
+  requestId: string,
+): Response {
+  return new Response(JSON.stringify({ ...body, request_id: requestId }), {
+    status,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      'X-Request-Id': requestId,
+    },
+  })
+}
+
+function hasSupabaseGatewayAuth(req: Request): boolean {
+  const auth = req.headers.get('authorization')?.trim() ?? ''
+  const apikey = req.headers.get('apikey')?.trim() ?? ''
+  if (auth.toLowerCase().startsWith('bearer ') && auth.length > 12) return true
+  if (apikey.length > 20) return true
+  return false
+}
+
+function resolveIdempotencyKey(req: Request, body: Record<string, unknown>): string | null {
+  const header = req.headers.get('x-idempotency-key')?.trim()
+  if (header) return header.slice(0, 200)
+  const fromBody = body.import_id ?? body.idempotency_key
+  if (typeof fromBody === 'string' && fromBody.trim()) {
+    return fromBody.trim().slice(0, 200)
   }
   return null
 }
 
 Deno.serve(async (req) => {
+  const requestId = newRequestId()
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', {
+      headers: { ...corsHeaders, 'X-Request-Id': requestId },
+    })
+  }
+
+  if (req.method === 'GET') {
+    return jsonResponse(
+      200,
+      {
+        ok: true,
+        service: 'import-expenses',
+        version: SERVICE_VERSION,
+        hint: 'POST JSON { transactions: [...] } with x-import-token and Authorization/apikey',
+      },
+      requestId,
+    )
   }
 
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return jsonResponse(405, { ok: false, error: 'method_not_allowed' }, requestId)
+  }
+
+  if (!hasSupabaseGatewayAuth(req)) {
+    return jsonResponse(
+      401,
+      {
+        ok: false,
+        error: 'missing_gateway_auth',
+        hint: 'Send Authorization: Bearer <anon JWT> and/or apikey: <anon JWT>',
+      },
+      requestId,
+    )
   }
 
   const importToken = req.headers.get('x-import-token')?.trim()
   if (!importToken) {
-    return new Response(JSON.stringify({ error: 'Missing x-import-token header' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return jsonResponse(401, { ok: false, error: 'missing_import_token' }, requestId)
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -58,99 +101,78 @@ Deno.serve(async (req) => {
     .maybeSingle()
 
   if (profileError || !profile) {
-    return new Response(JSON.stringify({ error: 'Invalid import token' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return jsonResponse(401, { ok: false, error: 'invalid_import_token' }, requestId)
   }
 
-  let body: { transactions?: unknown[]; source?: string }
+  let body: { transactions?: unknown[]; source?: string; import_id?: string }
   try {
     body = await req.json()
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return jsonResponse(400, { ok: false, error: 'invalid_json' }, requestId)
   }
+
+  const idempotencyKey = resolveIdempotencyKey(req, body as Record<string, unknown>)
 
   if (!Array.isArray(body.transactions) || body.transactions.length === 0) {
-    return new Response(JSON.stringify({ error: 'transactions array is required' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return jsonResponse(400, { ok: false, error: 'transactions_required' }, requestId)
   }
 
-  if (body.transactions.length > 200) {
-    return new Response(JSON.stringify({ error: 'Max 200 transactions per request' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+  const parsed = parseImportBatch(body.transactions, {
+    source: body.source,
+    idempotencyKey,
+    maxRows: MAX_ROWS,
+  })
+
+  if (!parsed.ok) {
+    return jsonResponse(
+      400,
+      { ok: false, error: 'validation_failed', details: parsed.errors },
+      requestId,
+    )
   }
 
-  const rows: Record<string, unknown>[] = []
-  const errors: string[] = []
+  const rpcRows = parsed.rows.map((row) => ({
+    id: crypto.randomUUID(),
+    type: row.type,
+    amount_kobo: row.amountKobo,
+    occurred_at: row.occurredAtIso,
+    category: row.category,
+    account: row.account,
+    counterparty: row.counterparty,
+    description: row.description,
+    import_idempotency_key: idempotencyKey,
+    import_row_key: idempotencyKey ? row.importRowKey : null,
+  }))
 
-  for (let i = 0; i < body.transactions.length; i++) {
-    const t = body.transactions[i] as Record<string, unknown>
-    const type = String(t.type ?? '')
-    if (!VALID_TYPES.has(type)) {
-      errors.push(`Row ${i + 1}: invalid type`)
-      continue
-    }
-    let kobo: number | null = null
-    if (typeof t.amount_kobo === 'number' && t.amount_kobo > 0) {
-      kobo = Math.round(t.amount_kobo)
-    } else {
-      kobo =
-        parseNairaToKobo(t.amount_naira) ??
-        parseNairaToKobo(t.amount)
-    }
-    if (kobo === null) {
-      errors.push(`Row ${i + 1}: invalid amount`)
-      continue
-    }
-    const occurredAt = String(t.occurred_at ?? t.date ?? '')
-    if (!occurredAt || Number.isNaN(Date.parse(occurredAt))) {
-      errors.push(`Row ${i + 1}: invalid occurred_at (use ISO date-time)`)
-      continue
-    }
-    rows.push({
-      id: crypto.randomUUID(),
-      user_id: profile.id,
-      type,
-      amount_kobo: kobo,
-      occurred_at: new Date(occurredAt).toISOString(),
-      category: String(t.category ?? 'Other expense').slice(0, 120),
-      account: String(t.account ?? 'Cash').slice(0, 120),
-      counterparty: String(t.counterparty ?? t.sender ?? t.recipient ?? '').slice(0, 200),
-      description: String(t.description ?? body.source ?? 'ChatGPT import').slice(0, 500),
-    })
+  const { data: rpcResult, error: rpcError } = await admin.rpc('import_expenses_batch', {
+    p_user_id: profile.id,
+    p_idempotency_key: idempotencyKey,
+    p_request_id: requestId,
+    p_rows: rpcRows,
+  })
+
+  if (rpcError) {
+    const msg = rpcError.message ?? 'import_failed'
+    const status = msg.includes('INVALID_BATCH') ? 400 : 500
+    console.error(
+      JSON.stringify({
+        request_id: requestId,
+        user_id: profile.id,
+        error: msg.slice(0, 200),
+      }),
+    )
+    return jsonResponse(status, { ok: false, error: 'import_failed' }, requestId)
   }
 
-  if (rows.length === 0) {
-    return new Response(JSON.stringify({ error: 'No valid transactions', details: errors }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  }
-
-  const { error: insertError } = await admin.from('transactions').insert(rows)
-  if (insertError) {
-    return new Response(JSON.stringify({ error: insertError.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  }
-
-  return new Response(
-    JSON.stringify({
+  const result = (rpcResult ?? {}) as Record<string, unknown>
+  return jsonResponse(
+    200,
+    {
       ok: true,
-      imported: rows.length,
-      skipped: errors.length,
-      details: errors.length ? errors : undefined,
-      user_id: profile.id,
-    }),
-    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      imported: Number(result.imported ?? 0),
+      skipped: Number(result.skipped ?? 0),
+      duplicate: Boolean(result.duplicate),
+    },
+    requestId,
   )
 })

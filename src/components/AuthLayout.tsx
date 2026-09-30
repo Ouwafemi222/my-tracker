@@ -12,8 +12,8 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         <div className="mb-8 flex items-center gap-3">
           <Logo className="h-11 w-11" />
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
-              Personal finance
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800 dark:text-[#d6ee7a]">
+              Private ledger
             </p>
             <p className="text-xl font-bold text-slate-900 dark:text-white">
               {isProApp() ? brand.fullName : brand.shortName}

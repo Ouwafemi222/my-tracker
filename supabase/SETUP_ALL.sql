@@ -183,3 +183,28 @@ alter table public.profiles
 create index if not exists profiles_import_token_idx
   on public.profiles (import_token)
   where import_token is not null;
+
+-- ========== 004: import idempotency + atomic batch RPC ==========
+alter table public.transactions
+  add column if not exists import_idempotency_key text,
+  add column if not exists import_row_key text;
+
+create unique index if not exists transactions_user_import_row_uidx
+  on public.transactions (user_id, import_idempotency_key, import_row_key)
+  where import_idempotency_key is not null
+    and import_row_key is not null;
+
+create table if not exists public.import_idempotency (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  idempotency_key text not null,
+  request_id uuid not null,
+  imported_count int not null default 0,
+  skipped_count int not null default 0,
+  response_json jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, idempotency_key)
+);
+
+alter table public.import_idempotency enable row level security;
+
+-- Then run the rest of supabase/migrations/004_import_idempotency.sql (import_expenses_batch RPC + grants).

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useTransactions } from '../context/TransactionContext'
 import {
   generateImportToken,
   getImportApiUrl,
@@ -9,6 +10,7 @@ import { getSupabaseEnvRaw } from '../lib/supabaseEnv'
 
 export function ChatGptImportSection() {
   const { profile, refreshProfile } = useAuth()
+  const { refreshFromCloud } = useTransactions()
   const [revealedToken, setRevealedToken] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
@@ -59,7 +61,7 @@ export function ChatGptImportSection() {
       <div>
         <h3 className="font-semibold text-slate-900 dark:text-white">ChatGPT auto-upload</h3>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Let your Custom GPT send parsed email expenses directly into this account. Setup guide:{' '}
+          ChatGPT can drop parsed expenses straight into this ledger. Setup notes:{' '}
           <code className="rounded bg-slate-100 px-1 text-xs dark:bg-slate-800">docs/CHATGPT_SETUP.md</code>{' '}
           in the GitHub repo.
         </p>
@@ -102,13 +104,29 @@ export function ChatGptImportSection() {
 
       {anonKey ? (
         <p className="text-xs text-slate-500">
-          ChatGPT Action also needs header{' '}
-          <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">Authorization: Bearer &lt;anon key&gt;</code>{' '}
-          (Supabase → API → anon public).
+          Plugin must send{' '}
+          <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">Authorization: Bearer &lt;anon&gt;</code> and{' '}
+          <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">apikey: &lt;anon&gt;</code>. Use{' '}
+          <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">x-idempotency-key</code> plus per-row{' '}
+          <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">row_id</code> for safe retries.
         </p>
       ) : null}
 
       <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true)
+            void refreshFromCloud()
+              .then(() => setNote('Refreshed transactions from cloud.'))
+              .catch((e) => setNote(e instanceof Error ? e.message : 'Refresh failed'))
+              .finally(() => setBusy(false))
+          }}
+          className="rounded-full border border-slate-300 px-5 py-2 text-sm font-medium dark:border-slate-600"
+        >
+          Refresh from cloud
+        </button>
         <button
           type="button"
           disabled={busy}

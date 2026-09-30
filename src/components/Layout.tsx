@@ -26,21 +26,21 @@ export function Layout() {
 
   return (
     <div className="app-shell-bg min-h-svh text-slate-900 dark:text-slate-100">
-      <header className="sticky top-0 z-50 border-b border-white/60 bg-white/70 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/70">
+      <header className="sticky top-0 z-50 border-b border-[#e2dbce]/80 bg-[#f7f4ee]/80 backdrop-blur-xl dark:border-slate-800/80 dark:bg-[#0c1612]/80">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
             <Logo />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-                Personal finance
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800 dark:text-[#d6ee7a]">
+                Private ledger
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white sm:text-xl">
                   {isProApp() ? brand.shortName : brand.shortName}
                 </h1>
                 {isProApp() ? (
-                  <span className="rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                    Pro
+                  <span className="rounded-full bg-[#1a3a2f] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#d6ee7a]">
+                    Mine
                   </span>
                 ) : null}
               </div>
@@ -132,7 +132,7 @@ export function Layout() {
 
       <footer className="border-t border-slate-200/80 py-8 text-center dark:border-slate-800">
         <p className="text-sm text-slate-500 dark:text-slate-500">
-          Gratitude Expenses · Track cash flow in Nigerian naira
+          My ledger · Nigerian naira
         </p>
         <p className="mt-1 text-xs text-slate-400 dark:text-slate-600">
           Net figures show money in and out — not your bank balance.

@@ -2,16 +2,24 @@ openapi: 3.1.0
 info:
   title: Gratitude Expenses Import API
   description: >
-    Upload parsed email expenses into the signed-in user's account.
-    Get x-import-token from the website Settings page after signing in.
-  version: 1.0.0
+    Upload parsed expenses into the signed-in user's account.
+    Get x-import-token from the website Settings page.
+    For safe retries, send x-idempotency-key (or body import_id) and stable row_id per row.
+    Supabase gateway requires Authorization Bearer anon JWT; also send apikey with the same anon JWT.
+  version: 1.1.0
 servers:
   - url: https://wnvndwxwdyenhhulypem.supabase.co/functions/v1
 paths:
   /import-expenses:
+    get:
+      operationId: importExpensesHealth
+      summary: Health check (no import token required)
+      responses:
+        '200':
+          description: Service reachable
     post:
       operationId: importExpenses
-      summary: Add expense and income rows from daily email analysis
+      summary: Add expense and income rows from spreadsheet or email analysis
       parameters:
         - name: x-import-token
           in: header
@@ -19,6 +27,24 @@ paths:
           schema:
             type: string
           description: Personal upload key from Gratitude Expenses Settings
+        - name: x-idempotency-key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Same key on retry returns duplicate=true without double insert
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Bearer followed by Supabase anon public JWT
+        - name: apikey
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Same Supabase anon public JWT (recommended with Authorization)
       requestBody:
         required: true
         content:
@@ -28,11 +54,15 @@ paths:
               required:
                 - transactions
               properties:
+                import_id:
+                  type: string
+                  description: Optional idempotency key (same as x-idempotency-key)
                 source:
                   type: string
-                  description: Optional label e.g. "Gmail daily summary"
+                  description: Optional label e.g. "September spreadsheet"
                 transactions:
                   type: array
+                  maxItems: 200
                   items:
                     type: object
                     required:
@@ -40,6 +70,9 @@ paths:
                       - amount_naira
                       - occurred_at
                     properties:
+                      row_id:
+                        type: string
+                        description: Stable id for this row within an import (dedupe on retry)
                       type:
                         type: string
                         enum:
@@ -53,7 +86,7 @@ paths:
                       occurred_at:
                         type: string
                         format: date-time
-                        description: ISO 8601, Africa/Lagos preferred
+                        description: ISO 8601 or YYYY-MM-DD (Africa/Lagos +01:00 preferred)
                       category:
                         type: string
                       account:
@@ -65,5 +98,22 @@ paths:
       responses:
         '200':
           description: Imported successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  imported:
+                    type: integer
+                  skipped:
+                    type: integer
+                  duplicate:
+                    type: boolean
+                  request_id:
+                    type: string
+        '400':
+          description: Validation failed (entire batch rejected)
         '401':
-          description: Invalid or missing import token
+          description: Invalid or missing import token or gateway auth

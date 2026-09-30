@@ -4,9 +4,10 @@ Your Custom GPT (or automation) can POST structured transactions to your account
 
 ## 1. Database
 
-Run in Supabase SQL Editor:
+Run in Supabase SQL Editor (in order):
 
-`supabase/migrations/003_chatgpt_import_token.sql`
+1. `supabase/SETUP_ALL.sql` (if not already done), **or** migrations `001` → `002` → `003`
+2. `supabase/migrations/004_import_idempotency.sql` (idempotent imports + atomic batch RPC)
 
 ## 2. Deploy the Edge Function
 
@@ -36,11 +37,29 @@ supabase functions deploy import-expenses --no-verify-jwt
    - Header: `x-import-token`
    - Value: your upload key from step 3
 
-Also add a static header in the action (if the UI allows):
+Also add headers (plugin / action must send **both** for reliable gateway access):
 
 - `Authorization`: `Bearer YOUR_SUPABASE_ANON_KEY`
+- `apikey`: `YOUR_SUPABASE_ANON_KEY` (same anon JWT, no `Bearer` prefix)
 
-(Supabase requires `Authorization` on Edge Functions; use the **anon public** key from Supabase → API.)
+Use the **anon public** key from Supabase → Project Settings → API.
+
+### Idempotent retries (recommended for large spreadsheets)
+
+Send a stable batch key so retries do not duplicate rows:
+
+- Header: `x-idempotency-key: sep-2026-1-19-v1` **or** JSON field `"import_id": "sep-2026-1-19-v1"`
+- Per row: `"row_id": "sep-01-lunch"` (stable within the spreadsheet)
+
+Re-posting the **same** idempotency key returns `{ "ok": true, "duplicate": true, ... }` without inserting again.
+
+### Plugin / MCP bridge (ChatGPT hosted)
+
+If you see **“Import outcome unknown”**, the bridge often timed out (30s) or aborted on redirects **before** Supabase responded. That does **not** prove rows were saved—check **Activity** on the website first.
+
+- URL must be exactly `https://wnvndwxwdyenhhulypem.supabase.co/functions/v1/import-expenses` (HTTPS, no trailing redirect).
+- Split large sheets into batches of **≤25 rows** per call to stay under bridge timeouts.
+- Optional: `GET` the same URL for a quick health check (`{ "ok": true, "service": "import-expenses" }`).
 
 ## 5. GPT instructions (add to system prompt)
 

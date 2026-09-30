@@ -1,0 +1,4 @@
+# Supabase CLI project config (link with: supabase link --project-ref wnvndwxwdyenhhulypem)
+
+[functions.import-expenses]
+verify_jwt = false
