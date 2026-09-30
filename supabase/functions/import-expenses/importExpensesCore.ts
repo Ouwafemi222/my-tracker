@@ -68,6 +68,35 @@ export function parseOccurredAt(raw: unknown): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString()
 }
 
+const IMPORT_BANKS: { label: string; aliases: string[] }[] = [
+  { label: 'OPay', aliases: ['opay', 'o pay'] },
+  { label: 'PalmPay', aliases: ['palmpay', 'palm pay'] },
+  { label: 'GTBank', aliases: ['gtbank', 'gt bank', 'guaranty trust'] },
+  { label: 'Wema', aliases: ['wema'] },
+  { label: 'Premium Bank', aliases: ['premiumtrust', 'premium bank', 'premium'] },
+  { label: 'Kuda', aliases: ['kuda'] },
+  { label: 'Grey', aliases: ['grey usd', 'grey', 'gray'] },
+]
+
+function matchBankLabel(text: string): string | null {
+  const blob = text.trim().toLowerCase().replace(/[_-]+/g, ' ')
+  if (!blob) return null
+  const hit = IMPORT_BANKS.find(
+    (bank) => bank.label.toLowerCase() === blob || bank.aliases.some((alias) => blob.includes(alias)),
+  )
+  return hit?.label ?? null
+}
+
+function canonicalImportAccount(t: Record<string, unknown>): string {
+  const explicit = String(t.account ?? t.bank ?? '').trim()
+  const fromExplicit = matchBankLabel(explicit)
+  if (fromExplicit) return fromExplicit
+  const hint = [t.description, t.counterparty, t.sender, t.recipient, t.source]
+    .map((part) => String(part ?? ''))
+    .join(' ')
+  return matchBankLabel(hint) ?? (explicit.slice(0, 120) || 'Unassigned')
+}
+
 export function buildImportRowKey(
   t: Record<string, unknown>,
   rowIndex: number,
@@ -131,7 +160,7 @@ export function parseImportBatch(
       amountKobo: kobo,
       occurredAtIso,
       category: String(t.category ?? 'Other expense').trim().slice(0, 120) || 'Other expense',
-      account: String(t.account ?? 'Cash').trim().slice(0, 120) || 'Cash',
+      account: canonicalImportAccount(t),
       counterparty: String(t.counterparty ?? t.sender ?? t.recipient ?? '')
         .trim()
         .slice(0, 200),

@@ -61,7 +61,7 @@ export function ChatGptImportSection() {
       <div>
         <h3 className="font-semibold text-slate-900 dark:text-white">ChatGPT auto-upload</h3>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          ChatGPT can drop parsed expenses straight into this ledger. Setup notes:{' '}
+          ChatGPT only needs to send each day’s transactions. Filtering stays on this website. Setup notes:{' '}
           <code className="rounded bg-slate-100 px-1 text-xs dark:bg-slate-800">docs/CHATGPT_SETUP.md</code>{' '}
           in the GitHub repo.
         </p>

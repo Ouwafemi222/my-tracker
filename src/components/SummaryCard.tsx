@@ -1,4 +1,5 @@
-import { formatKoboAsNaira } from '../utils/money'
+import type { BankCurrency } from '../utils/banks'
+import { formatMinorAmount } from '../utils/banks'
 
 interface SummaryCardProps {
   title: string
@@ -6,6 +7,7 @@ interface SummaryCardProps {
   subtitle?: string
   highlight?: 'neutral' | 'in' | 'out' | 'net'
   large?: boolean
+  currency?: BankCurrency
 }
 
 export function SummaryCard({
@@ -14,6 +16,7 @@ export function SummaryCard({
   subtitle,
   highlight = 'neutral',
   large = false,
+  currency = 'NGN',
 }: SummaryCardProps) {
   const ring =
     highlight === 'net'
@@ -39,7 +42,7 @@ export function SummaryCard({
       <p
         className={`mt-2 font-bold tabular-nums tracking-tight ${valueColor} ${large ? 'text-3xl sm:text-4xl' : 'text-2xl'}`}
       >
-        {formatKoboAsNaira(amountKobo)}
+        {formatMinorAmount(amountKobo, currency)}
       </p>
       {subtitle ? (
         <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-500">

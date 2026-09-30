@@ -1,10 +1,13 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { getAppBranding, isProApp } from '../config/appVariant'
 import { useAuth } from '../context/AuthContext'
 import { useTransactions } from '../context/TransactionContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { isSupabaseConfigured } from '../lib/supabaseEnv'
 import { LiveIndicator } from './LiveIndicator'
+import { LedgerFilterBar } from './LedgerFilterBar'
+import { LockScreen } from './LockScreen'
+import { useScreenLock } from '../context/ScreenLockContext'
 import { Logo } from './Logo'
 import { UpgradeToProButton } from './UpgradeToProButton'
 
@@ -21,6 +24,8 @@ export function Layout() {
   const brand = getAppBranding()
   const { profile } = useAuth()
   const { settings, setTheme, cloudSyncState, cloudSyncError } = useTransactions()
+  const { hasPin, lock } = useScreenLock()
+  const { pathname } = useLocation()
 
   const initial = profile?.display_name?.charAt(0).toUpperCase() ?? '?'
 
@@ -63,6 +68,15 @@ export function Layout() {
             <UpgradeToProButton compact />
             {isSupabaseConfigured() ? (
               <LiveIndicator state={cloudSyncState} error={cloudSyncError} />
+            ) : null}
+            {hasPin ? (
+              <button
+                type="button"
+                onClick={lock}
+                className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              >
+                Lock
+              </button>
             ) : null}
             <button
               type="button"
@@ -108,13 +122,16 @@ export function Layout() {
               aria-label="Main"
             >
               <NavLink to="/" end className={linkClass}>
-                Overview
+                Dashboard
               </NavLink>
               <NavLink to="/add" className={linkClass}>
                 Record
               </NavLink>
               <NavLink to="/history" className={linkClass}>
-                Activity
+                History
+              </NavLink>
+              <NavLink to="/balances" className={linkClass}>
+                Balances
               </NavLink>
               <NavLink to="/data" className={linkClass}>
                 Settings
@@ -124,7 +141,9 @@ export function Layout() {
         </div>
       </header>
 
+      <LockScreen />
       <main className="mx-auto max-w-6xl px-4 py-8">
+        {pathname === '/' ? null : <LedgerFilterBar />}
         <div className="animate-fade-up">
           <Outlet />
         </div>

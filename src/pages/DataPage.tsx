@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { ChatGptImportSection } from '../components/ChatGptImportSection'
+import { GmailConnectSection } from '../components/GmailConnectSection'
 import { useTransactions } from '../context/TransactionContext'
 
 export function DataPage() {
@@ -85,6 +86,8 @@ export function DataPage() {
           {message.text}
         </p>
       ) : null}
+
+      <GmailConnectSection />
 
       <ChatGptImportSection />
 

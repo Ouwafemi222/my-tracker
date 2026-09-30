@@ -71,6 +71,12 @@ h2 {
   min-height: 100svh;
 }
 
+#root.ledger-locked {
+  filter: blur(28px);
+  pointer-events: none;
+  user-select: none;
+}
+
 .app-shell-bg {
   background-color: #f3efe6;
   background-image:

@@ -1,13 +1,18 @@
 import { useMemo, useState } from 'react'
 import { TransactionForm } from '../components/TransactionForm'
+import { TransactionReceipt } from '../components/TransactionReceipt'
+import { useLedgerFilter } from '../context/LedgerFilterContext'
 import { useTransactions } from '../context/TransactionContext'
 import {
   TRANSACTION_TYPE_LABELS,
   type Transaction,
   type TransactionType,
 } from '../types/transaction'
+import { Link } from 'react-router-dom'
 import { formatLagosDateTime, toLagosDateString } from '../utils/dates'
 import { formatKoboAsNaira } from '../utils/money'
+import { cleanParty, readAlert } from '../utils/alertDetails'
+import { bankFromAccount, formatMinorAmount } from '../utils/banks'
 import { categoriesForType } from '../utils/categories'
 import { isProApp } from '../config/appVariant'
 import { UpgradeToProButton } from '../components/UpgradeToProButton'
@@ -21,13 +26,15 @@ const ALL_TYPES: TransactionType[] = [
 ]
 
 export function HistoryPage() {
-  const { transactions, updateTransaction, deleteTransaction } = useTransactions()
+  const { updateTransaction, deleteTransaction } = useTransactions()
+  const { visibleTransactions: transactions } = useLedgerFilter()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<TransactionType | 'all'>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [editing, setEditing] = useState<Transaction | null>(null)
+  const [open, setOpen] = useState<Transaction | null>(null)
 
   const allCategories = useMemo(() => {
     const set = new Set<string>()
@@ -73,7 +80,7 @@ export function HistoryPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-          Activity
+          History
         </h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           Search, filter, edit, or export your transactions.
@@ -140,6 +147,8 @@ export function HistoryPage() {
         </label>
       </div>
 
+      {open ? <TransactionReceipt transaction={open} onClose={() => setOpen(null)} /> : null}
+
       {editing ? (
         <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
           <h3 className="mb-4 font-semibold text-slate-900">Edit transaction</h3>
@@ -183,41 +192,78 @@ export function HistoryPage() {
           No transactions match your filters.
         </p>
       ) : (
-        <ul className="space-y-2">
-          {filtered.map((t) => (
+        <ul className="space-y-3">
+          {filtered.map((t) => {
+            const bank = bankFromAccount(t.account)
+            const alert = readAlert(t.description, t.counterparty)
+            const person = cleanParty(alert.sender || alert.recipient)
+            return (
             <li
               key={t.id}
-              className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpen(t)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  setOpen(t)
+                }
+              }}
+              className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-emerald-300 dark:border-slate-700 dark:bg-slate-950"
             >
-              <div>
-                <p className="font-medium text-slate-900">{TRANSACTION_TYPE_LABELS[t.type]}</p>
-                <p className="text-sm text-slate-600">
-                  {formatKoboAsNaira(t.amountKobo)} · {t.category} · {t.account}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {formatLagosDateTime(t.occurredAt)}
-                  {t.counterparty ? ` · ${t.counterparty}` : ''}
-                  {t.description ? ` · ${t.description}` : ''}
-                </p>
-              </div>
-              <div className="flex gap-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  {bank ? (
+                    <Link
+                      to={`/bank/${bank.id}`}
+                      onClick={(event) => event.stopPropagation()}
+                      className="text-xs font-bold uppercase tracking-wide text-emerald-800 hover:underline dark:text-[#d6ee7a]"
+                    >
+                      {bank.label}
+                    </Link>
+                  ) : (
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{t.account}</p>
+                  )}
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                    {formatMinorAmount(t.amountKobo, bank?.currency ?? 'NGN')}
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    {TRANSACTION_TYPE_LABELS[t.type]} · {t.category}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
                 <button
                   type="button"
-                  onClick={() => setEditing(t)}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setEditing(t)
+                  }}
                   className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
                 >
                   Edit
                 </button>
                 <button
                   type="button"
-                  onClick={() => confirmDelete(t)}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    confirmDelete(t)
+                  }}
                   className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
                 >
                   Delete
                 </button>
               </div>
+              </div>
+              {alert.narration ? (
+                <p className="mt-3 text-sm text-slate-800 dark:text-slate-200">{alert.narration}</p>
+              ) : null}
+              <p className="mt-1 text-xs text-slate-500">
+                {formatLagosDateTime(t.occurredAt)}
+                {person ? ` · ${person}` : ''}
+              </p>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
     </div>

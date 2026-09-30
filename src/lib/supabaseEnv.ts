@@ -29,9 +29,8 @@ export function getSupabaseEnvRaw() {
 
 export function getSupabaseConfigIssue(): string | null {
   const { url, anonKey } = getSupabaseEnvRaw()
-  if (!url && !anonKey) return null
   if (!url || !anonKey) {
-    return 'Add both VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your host settings, then redeploy.'
+    return 'This site was built without Supabase keys. In Vercel → Settings → Environment Variables, add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (Config, not Secret), then redeploy.'
   }
   if (!isValidHttpUrl(url)) {
     return 'VITE_SUPABASE_URL must be a full URL like https://YOUR_PROJECT.supabase.co (no quotes or spaces).'
@@ -43,6 +42,8 @@ export function getSupabaseConfigIssue(): string | null {
 }
 
 export function isSupabaseConfigured(): boolean {
+  const { url, anonKey } = getSupabaseEnvRaw()
+  if (!url || !anonKey) return false
   return getSupabaseConfigIssue() === null
 }
 

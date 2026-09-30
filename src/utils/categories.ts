@@ -1,12 +1,13 @@
 import type { TransactionType } from '../types/transaction'
 
 export const ACCOUNTS = [
-  'Cash',
-  'GTBank',
-  'Access Bank',
-  'Opay',
-  'Kuda',
+  'OPay',
   'PalmPay',
+  'GTBank',
+  'Wema',
+  'Premium Bank',
+  'Kuda',
+  'Grey',
 ] as const
 
 const EARNED_CATEGORIES = [

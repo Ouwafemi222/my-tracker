@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import type { Transaction, TransactionType } from '../types/transaction'
 import { TRANSACTION_TYPE_LABELS } from '../types/transaction'
 import { categoriesForType, ACCOUNTS } from '../utils/categories'
+import { bankFromAccount } from '../utils/banks'
 import { nairaInputFromKobo, parseNairaToKobo } from '../utils/money'
 
 export interface TransactionFormValues {
@@ -136,11 +137,13 @@ export function TransactionForm({
           </select>
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Amount (₦)
+          {bankFromAccount(values.account)?.currency === 'USD' ? 'Amount (USD)' : 'Amount (₦)'}
           <input
             className={fieldClass}
             inputMode="decimal"
-            placeholder="e.g. 5000"
+            placeholder={
+              bankFromAccount(values.account)?.currency === 'USD' ? 'e.g. 25.00' : 'e.g. 5000'
+            }
             value={values.amountNaira}
             onChange={(e) => setValues((v) => ({ ...v, amountNaira: e.target.value }))}
             required
@@ -187,9 +190,14 @@ export function TransactionForm({
             value={values.account}
             onChange={(e) => setValues((v) => ({ ...v, account: e.target.value }))}
           >
+            {(ACCOUNTS as readonly string[]).includes(values.account)
+              ? null
+              : values.account ? (
+                  <option value={values.account}>{values.account}</option>
+                ) : null}
             {ACCOUNTS.map((a) => (
               <option key={a} value={a}>
-                {a}
+                {a === 'Grey' ? 'Grey (USD)' : a}
               </option>
             ))}
           </select>
