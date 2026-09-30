@@ -23,16 +23,16 @@ export function getProAppUrl(): string | null {
 export function getAppBranding() {
   if (isProApp()) {
     return {
-      shortName: 'Gratitude Expenses Pro',
-      fullName: 'Personal Finance Gratitude Expenses Pro',
-      tagline: 'Charts, budgets, and deep insights',
-      documentTitle: 'Personal Finance Gratitude Expenses Pro',
+      shortName: 'Gratitude',
+      fullName: 'My naira ledger',
+      tagline: 'Private cash flow, just for me',
+      documentTitle: 'Gratitude',
     }
   }
   return {
-    shortName: 'Gratitude Expenses',
-    fullName: 'Gratitude Expenses',
-    tagline: 'Simple cash-flow tracking in naira',
-    documentTitle: 'Gratitude Expenses',
+    shortName: 'Gratitude',
+    fullName: 'My naira ledger',
+    tagline: 'Private cash flow, just for me',
+    documentTitle: 'Gratitude',
   }
 }

@@ -3,10 +3,46 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-emerald-brand: #059669;
-  --color-emerald-brand-light: #ecfdf5;
-  --color-emerald-brand-dark: #047857;
-  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --color-emerald-brand: #1c3f34;
+  --color-emerald-brand-light: #eef4ef;
+  --color-emerald-brand-dark: #122820;
+  --font-sans: 'Outfit', 'Segoe UI', system-ui, sans-serif;
+  --font-serif: 'Fraunces', Georgia, serif;
+
+  --color-slate-50: #f7f4ee;
+  --color-slate-100: #efeae0;
+  --color-slate-200: #e2dbce;
+  --color-slate-300: #cfc6b6;
+  --color-slate-400: #8a968f;
+  --color-slate-500: #66756d;
+  --color-slate-600: #4d5e56;
+  --color-slate-700: #314840;
+  --color-slate-800: #1e332c;
+  --color-slate-900: #143028;
+  --color-slate-950: #0c1c18;
+
+  --color-emerald-50: #eef4ef;
+  --color-emerald-100: #dce8df;
+  --color-emerald-200: #c5d6c8;
+  --color-emerald-300: #9bb8a4;
+  --color-emerald-400: #6d947c;
+  --color-emerald-500: #3d6b54;
+  --color-emerald-600: #1c3f34;
+  --color-emerald-700: #16342b;
+  --color-emerald-800: #122820;
+  --color-emerald-900: #0e1f19;
+  --color-emerald-950: #081410;
+
+  --color-indigo-50: #eef4ef;
+  --color-indigo-100: #dce8df;
+  --color-indigo-200: #c5d6c8;
+  --color-indigo-300: #9bb8a4;
+  --color-indigo-600: #1c3f34;
+  --color-indigo-700: #16342b;
+  --color-indigo-800: #16342b;
+  --color-indigo-900: #122820;
+  --color-indigo-950: #0e1f19;
+  --color-violet-600: #2a5546;
 }
 
 html {
@@ -17,12 +53,18 @@ html {
 body {
   margin: 0;
   min-height: 100svh;
-  color: #0f172a;
+  color: #143028;
   -webkit-font-smoothing: antialiased;
 }
 
 html.dark body {
-  color: #f1f5f9;
+  color: #f4f1ea;
+}
+
+h1,
+h2 {
+  font-family: var(--font-serif);
+  letter-spacing: -0.03em;
 }
 
 #root {
@@ -30,17 +72,17 @@ html.dark body {
 }
 
 .app-shell-bg {
-  background-color: #f8fafc;
+  background-color: #f3efe6;
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(5, 150, 105, 0.08), transparent);
+    radial-gradient(ellipse 70% 45% at 10% -10%, rgba(214, 238, 122, 0.35), transparent),
+    radial-gradient(ellipse 50% 40% at 100% 0%, rgba(28, 63, 52, 0.08), transparent);
 }
 
 html.dark .app-shell-bg {
-  background-color: #020617;
+  background-color: #0c1612;
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.15), transparent),
-    radial-gradient(ellipse 50% 30% at 0% 100%, rgba(5, 150, 105, 0.1), transparent);
+    radial-gradient(ellipse 70% 45% at 10% -10%, rgba(214, 238, 122, 0.08), transparent),
+    radial-gradient(ellipse 50% 40% at 100% 0%, rgba(28, 63, 52, 0.45), transparent);
 }
 
 @keyframes fade-up {
@@ -73,10 +115,11 @@ html.dark .app-shell-bg {
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 252, 247, 0.92);
   backdrop-filter: blur(12px);
+  box-shadow: 0 18px 40px rgba(20, 48, 40, 0.06);
 }
 
 html.dark .glass-card {
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(18, 32, 28, 0.88);
 }

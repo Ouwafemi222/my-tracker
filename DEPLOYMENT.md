@@ -27,6 +27,23 @@ cp .env.pro.example .env.pro
 
 Both need the same `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 
+### Vercel environment variables (important)
+
+In **Project → Settings → Environment Variables**, add (for **Production**, **Preview**, and **Development**):
+
+| Name | Example value |
+| ---- | ------------- |
+| `VITE_SUPABASE_URL` | `https://wnvndwxwdyenhhulypem.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | `eyJhbGci...` (anon public key) |
+
+**Do not** wrap values in quotes. **Redeploy** after saving — Vite bakes env vars in at **build** time.
+
+Simple site also needs `VITE_APP_VARIANT=simple` and `VITE_PRO_APP_URL=https://your-pro-project.vercel.app`.
+
+Pro site needs `VITE_APP_VARIANT=pro`.
+
+A blank white page usually means `VITE_SUPABASE_URL` is missing or malformed (must start with `https://`).
+
 ## 2. Build commands
 
 ```bash

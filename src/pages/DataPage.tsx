@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { ChatGptImportSection } from '../components/ChatGptImportSection'
 import { useTransactions } from '../context/TransactionContext'
 
 export function DataPage() {
@@ -69,7 +70,7 @@ export function DataPage() {
           Settings
         </h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Back up your records, restore from a file, or reset your activity.
+          Backup, restore, and the ChatGPT upload for this ledger.
         </p>
       </div>
 
@@ -85,11 +86,13 @@ export function DataPage() {
         </p>
       ) : null}
 
+      <ChatGptImportSection />
+
       {transactions.length === 0 ? (
         <section className="glass-card space-y-3 rounded-2xl p-6 ring-1 ring-slate-200/80 dark:ring-slate-700">
-          <h3 className="font-semibold text-slate-900 dark:text-white">New here?</h3>
+          <h3 className="font-semibold text-slate-900 dark:text-white">Nothing recorded yet</h3>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Load a week of sample salary, shopping, and transfers to explore charts and summaries.
+            Load a sample week if you want to see the charts before your own rows arrive.
           </p>
           <button
             type="button"

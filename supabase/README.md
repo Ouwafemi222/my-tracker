@@ -11,11 +11,19 @@ You can disable **Anonymous sign-ins** if you only want registered users.
 
 ## 2. Create tables
 
-Open **SQL Editor** → **New query**, paste the contents of:
+Open **SQL Editor** → **New query**.
 
-`supabase/migrations/001_gratitude_expenses_schema.sql`
+**Easiest (recommended):** paste and run the entire file **`supabase/SETUP_ALL.sql`** once.
 
-Click **Run**, then run `supabase/migrations/002_profiles_and_auth.sql` the same way.
+**Or run in order:**
+
+1. `supabase/migrations/001_gratitude_expenses_schema.sql`
+2. `supabase/migrations/002_profiles_and_auth.sql` ← creates `profiles` (required before 003)
+3. `supabase/migrations/003_chatgpt_import_token.sql`
+
+If you see `relation "public.profiles" does not exist`, you skipped step 2 — run **002** or use **SETUP_ALL.sql**.
+
+For ChatGPT uploads, deploy the Edge Function (see `docs/CHATGPT_SETUP.md`).
 
 This creates:
 

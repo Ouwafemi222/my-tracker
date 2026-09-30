@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { ConfigIssueBanner } from './components/ConfigIssueBanner'
 import { RequireAuth } from './components/RequireAuth'
 import { Layout } from './components/Layout'
 import { AuthProvider } from './context/AuthContext'
@@ -13,6 +14,7 @@ import { ProfilePage } from './pages/ProfilePage'
 export default function App() {
   return (
     <AuthProvider>
+      <ConfigIssueBanner />
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<AuthPage />} />

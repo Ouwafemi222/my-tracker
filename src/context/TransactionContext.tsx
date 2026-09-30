@@ -12,6 +12,7 @@ import type { Transaction } from '../types/transaction'
 import { createDemoTransactions } from '../demo/demoData'
 import { useAuth } from './AuthContext'
 import { isSupabaseConfigured } from '../lib/supabaseEnv'
+import { getSupabase } from '../lib/supabaseClient'
 import type { AppSettings } from '../storage/persistence'
 import {
   exportBackupJsonV2,
@@ -44,6 +45,7 @@ interface TransactionContextValue {
   exportBackup: () => string
   importBackupV2: (json: string) => { ok: true } | { ok: false; error: string }
   importBackupV1: (json: string) => { ok: true } | { ok: false; error: string }
+  refreshFromCloud: () => Promise<void>
 }
 
 const TransactionContext = createContext<TransactionContextValue | null>(null)
@@ -140,18 +142,13 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        const useRemote =
-          remote.transactions.length > 0 ||
-          remote.settings.monthlyBudgetKobo > 0 ||
-          remote.settings.theme === 'dark'
-
-        if (useRemote) {
+        if (remote.transactions.length > 0) {
           persistLocal(remote.transactions, remote.settings)
         } else if (local.transactions.length > 0 || local.settings.monthlyBudgetKobo > 0) {
           await syncSupabaseState(local.transactions, local.settings)
           persistLocal(local.transactions, local.settings)
         } else {
-          persistLocal([], local.settings)
+          persistLocal(remote.transactions, remote.settings)
         }
 
         cloudReadyRef.current = true
@@ -169,6 +166,54 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       cancelled = true
     }
   }, [authRequired, authLoading, userId, persistLocal, reportCloudError])
+
+  const pullRemoteTransactions = useCallback(async () => {
+    if (!isSupabaseConfigured() || !userId || !cloudReadyRef.current) return
+    try {
+      const remote = await fetchSupabaseState()
+      if (!remote) return
+      persistLocal(remote.transactions, remote.settings)
+      setCloudSyncError(null)
+      setCloudSyncState('ready')
+    } catch (e) {
+      reportCloudError(e)
+    }
+  }, [userId, persistLocal, reportCloudError])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !userId || authLoading) return
+
+    const onFocus = () => {
+      void pullRemoteTransactions()
+    }
+    window.addEventListener('focus', onFocus)
+
+    const supabase = getSupabase()
+    if (!supabase) {
+      return () => window.removeEventListener('focus', onFocus)
+    }
+
+    const channel = supabase
+      .channel(`transactions:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void pullRemoteTransactions()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      void supabase.removeChannel(channel)
+    }
+  }, [userId, authLoading, pullRemoteTransactions])
 
   const addTransaction = useCallback(
     (t: Omit<Transaction, 'id'>) => {
@@ -280,6 +325,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       exportBackup,
       importBackupV2,
       importBackupV1,
+      refreshFromCloud: pullRemoteTransactions,
     }),
     [
       stored,
@@ -295,6 +341,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       exportBackup,
       importBackupV2,
       importBackupV1,
+      pullRemoteTransactions,
     ],
   )
 
