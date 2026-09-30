@@ -32,5 +32,8 @@ yarn-error.log*
 !.env.simple.example
 !.env.pro.example
 
+# Supabase CLI
+supabase/.temp/
+
 # Test / coverage
 coverage/

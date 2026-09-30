@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "supabase:deploy-import": "supabase functions deploy import-expenses --project-ref wnvndwxwdyenhhulypem --no-verify-jwt",
     "dev": "vite --mode pro",
     "dev:simple": "vite --mode simple",
     "dev:pro": "vite --mode pro --port 5174",
