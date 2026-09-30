@@ -61,12 +61,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let mounted = true
     ;(async () => {
-      const { data } = await supabase.auth.getSession()
-      if (!mounted) return
-      setSession(data.session)
-      setUser(data.session?.user ?? null)
-      if (data.session?.user) await loadProfile(data.session.user)
-      setLoading(false)
+      try {
+        const { data } = await supabase.auth.getSession()
+        if (!mounted) return
+        setSession(data.session)
+        setUser(data.session?.user ?? null)
+        if (data.session?.user) await loadProfile(data.session.user)
+      } catch (e) {
+        console.error('Auth session error:', e)
+      } finally {
+        if (mounted) setLoading(false)
+      }
     })()
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {

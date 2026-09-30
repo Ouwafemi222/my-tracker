@@ -2,18 +2,26 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getSupabaseConfig } from './supabaseEnv'
 
 let client: SupabaseClient | null = null
+let initFailed = false
 
 export function getSupabase(): SupabaseClient | null {
+  if (initFailed) return null
   const cfg = getSupabaseConfig()
   if (!cfg) return null
   if (!client) {
-    client = createClient(cfg.url, cfg.anonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    })
+    try {
+      client = createClient(cfg.url, cfg.anonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      })
+    } catch (e) {
+      console.error('Supabase client init failed:', e)
+      initFailed = true
+      return null
+    }
   }
   return client
 }
