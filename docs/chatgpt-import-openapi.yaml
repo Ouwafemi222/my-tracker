@@ -1,0 +1,69 @@
+openapi: 3.1.0
+info:
+  title: Gratitude Expenses Import API
+  description: >
+    Upload parsed email expenses into the signed-in user's account.
+    Get x-import-token from the website Settings page after signing in.
+  version: 1.0.0
+servers:
+  - url: https://wnvndwxwdyenhhulypem.supabase.co/functions/v1
+paths:
+  /import-expenses:
+    post:
+      operationId: importExpenses
+      summary: Add expense and income rows from daily email analysis
+      parameters:
+        - name: x-import-token
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Personal upload key from Gratitude Expenses Settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - transactions
+              properties:
+                source:
+                  type: string
+                  description: Optional label e.g. "Gmail daily summary"
+                transactions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - amount_naira
+                      - occurred_at
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - earned_income
+                          - other_income
+                          - expense
+                          - internal_transfer
+                      amount_naira:
+                        type: number
+                        description: Positive amount in Nigerian naira
+                      occurred_at:
+                        type: string
+                        format: date-time
+                        description: ISO 8601, Africa/Lagos preferred
+                      category:
+                        type: string
+                      account:
+                        type: string
+                      counterparty:
+                        type: string
+                      description:
+                        type: string
+      responses:
+        '200':
+          description: Imported successfully
+        '401':
+          description: Invalid or missing import token

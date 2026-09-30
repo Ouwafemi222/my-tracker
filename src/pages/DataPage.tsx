@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { ChatGptImportSection } from '../components/ChatGptImportSection'
 import { useTransactions } from '../context/TransactionContext'
 
 export function DataPage() {
@@ -84,6 +85,8 @@ export function DataPage() {
           {message.text}
         </p>
       ) : null}
+
+      <ChatGptImportSection />
 
       {transactions.length === 0 ? (
         <section className="glass-card space-y-3 rounded-2xl p-6 ring-1 ring-slate-200/80 dark:ring-slate-700">

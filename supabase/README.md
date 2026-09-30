@@ -15,7 +15,9 @@ Open **SQL Editor** → **New query**, paste the contents of:
 
 `supabase/migrations/001_gratitude_expenses_schema.sql`
 
-Click **Run**, then run `supabase/migrations/002_profiles_and_auth.sql` the same way.
+Click **Run**, then run `supabase/migrations/002_profiles_and_auth.sql` and `003_chatgpt_import_token.sql` the same way.
+
+For ChatGPT uploads, deploy the Edge Function (see `docs/CHATGPT_SETUP.md`).
 
 This creates:
 

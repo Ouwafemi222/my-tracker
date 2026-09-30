@@ -8,7 +8,7 @@ export async function fetchProfile(userId: string): Promise<UserProfile | null> 
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, display_name, created_at, updated_at')
+    .select('id, email, display_name, import_token, created_at, updated_at')
     .eq('id', userId)
     .maybeSingle()
 
@@ -68,4 +68,43 @@ export async function updateDisplayName(displayName: string): Promise<UserProfil
   })
 
   return data as UserProfile
+}
+
+function randomImportToken(): string {
+  const part = () => crypto.randomUUID().replace(/-/g, '')
+  return `get_${part()}${part()}`
+}
+
+export async function generateImportToken(): Promise<string> {
+  const supabase = getSupabase()
+  const userId = await getAuthenticatedUserId()
+  if (!supabase || !userId) throw new Error('Not signed in')
+
+  const token = randomImportToken()
+  const { error } = await supabase
+    .from('profiles')
+    .update({ import_token: token })
+    .eq('id', userId)
+
+  if (error) throw new Error(error.message)
+  return token
+}
+
+export async function revokeImportToken(): Promise<void> {
+  const supabase = getSupabase()
+  const userId = await getAuthenticatedUserId()
+  if (!supabase || !userId) throw new Error('Not signed in')
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ import_token: null })
+    .eq('id', userId)
+
+  if (error) throw new Error(error.message)
+}
+
+export function getImportApiUrl(): string | null {
+  const url = import.meta.env.VITE_SUPABASE_URL?.trim()
+  if (!url || !url.startsWith('https://')) return null
+  return `${url.replace(/\/$/, '')}/functions/v1/import-expenses`
 }
