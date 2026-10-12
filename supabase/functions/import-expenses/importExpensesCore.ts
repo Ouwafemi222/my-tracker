@@ -73,9 +73,11 @@ const IMPORT_BANKS: { label: string; aliases: string[] }[] = [
   { label: 'PalmPay', aliases: ['palmpay', 'palm pay'] },
   { label: 'GTBank', aliases: ['gtbank', 'gt bank', 'guaranty trust'] },
   { label: 'Wema', aliases: ['wema'] },
-  { label: 'Premium Bank', aliases: ['premiumtrust', 'premium bank', 'premium'] },
+  { label: 'Premium Bank', aliases: ['premiumtrust', 'premium trust', 'premium bank'] },
   { label: 'Kuda', aliases: ['kuda'] },
+  { label: 'Moniepoint', aliases: ['moniepoint', 'monie point', 'moniepoint mfb'] },
   { label: 'Grey', aliases: ['grey usd', 'grey', 'gray'] },
+  { label: 'Rainest', aliases: ['rainest', 'raines', 'rainest usdt', 'usdt'] },
 ]
 
 function matchBankLabel(text: string): string | null {

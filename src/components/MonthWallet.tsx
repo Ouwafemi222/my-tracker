@@ -134,7 +134,7 @@ export function MonthWallet() {
           </p>
           {todayUsd.totalMoneyOutKobo > 0 || todayUsd.totalMoneyInKobo > 0 ? (
             <p className="mt-1 text-sm text-[#d6ee7a]">
-              Grey today {maskMinorAmount(figuresHidden, todayUsd.totalMoneyOutKobo, 'USD')} spent
+              USD today {maskMinorAmount(figuresHidden, todayUsd.totalMoneyOutKobo, 'USD')} spent
             </p>
           ) : null}
         </div>

@@ -59,9 +59,9 @@ export function GmailConnectSection() {
       <div>
         <h3 className="font-semibold text-slate-900 dark:text-white">Gmail</h3>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Pull every transfer alert from today for OPay, PalmPay, GTBank, Wema, Premium Bank, Kuda,
-          and Grey in <strong>{GMAIL_ACCOUNT}</strong>. Approve Google once. After that, signing
-          in to this ledger does not open Google again.
+          Pull credit and debit alerts from OPay, PalmPay, GTBank, Wema, Premium Bank, Kuda,
+          Moniepoint, Grey, and Rainest (USDT) in <strong>{GMAIL_ACCOUNT}</strong>. Approve Google
+          once. After that, signing in to this ledger does not open Google again.
         </p>
       </div>
 

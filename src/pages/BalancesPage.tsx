@@ -11,7 +11,10 @@ export function BalancesPage() {
     (sum, bank) => sum + (balances[bank.id]?.amountKobo ?? 0),
     0,
   )
-  const usdLeft = balances.grey?.amountKobo ?? 0
+  const usdLeft = BANKS.filter((bank) => bank.currency === 'USD').reduce(
+    (sum, bank) => sum + (balances[bank.id]?.amountKobo ?? 0),
+    0,
+  )
 
   return (
     <div className="space-y-6">
@@ -37,7 +40,7 @@ export function BalancesPage() {
           <p className="mt-2 font-serif text-3xl">{maskMinorAmount(amountsHidden, nairaLeft, 'NGN')}</p>
         </div>
         <div className="rounded-2xl bg-[#1a3a2f] px-5 py-4 text-[#f7f4ee]">
-          <p className="text-xs uppercase tracking-[0.14em] text-[#d6ee7a]">Grey left</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-[#d6ee7a]">USD / USDT left</p>
           <p className="mt-2 font-serif text-3xl">{maskMinorAmount(amountsHidden, usdLeft, 'USD')}</p>
         </div>
       </div>

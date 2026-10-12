@@ -197,7 +197,7 @@ export function TransactionForm({
                 ) : null}
             {ACCOUNTS.map((a) => (
               <option key={a} value={a}>
-                {a === 'Grey' ? 'Grey (USD)' : a}
+                {a === 'Grey' || a === 'Rainest' ? `${a} (USD / USDT)` : a}
               </option>
             ))}
           </select>

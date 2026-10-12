@@ -7,7 +7,9 @@ export const ACCOUNTS = [
   'Wema',
   'Premium Bank',
   'Kuda',
+  'Moniepoint',
   'Grey',
+  'Rainest',
 ] as const
 
 const EARNED_CATEGORIES = [

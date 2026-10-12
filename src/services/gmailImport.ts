@@ -141,7 +141,11 @@ function parseAmount(text: string, currency: 'NGN' | 'USD'): number | null {
   const cleaned = toPlain(text)
   const patterns =
     currency === 'USD'
-      ? [/\$\s*([\d,]+(?:\.\d{1,2})?)/, /USD\s*([\d,]+(?:\.\d{1,2})?)/i]
+      ? [
+          /\$\s*([\d,]+(?:\.\d{1,2})?)/,
+          /(?:USD|USDT)\s*([\d,]+(?:\.\d{1,2})?)/i,
+          /([\d,]+(?:\.\d{1,2})?)\s*(?:USD|USDT)\b/i,
+        ]
       : [
           /(?:₦|NGN)\s*([\d,]+(?:\.\d{1,2})?)/i,
           /\bN\s*([\d]{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\b/,
@@ -158,15 +162,19 @@ function parseAmount(text: string, currency: 'NGN' | 'USD'): number | null {
 
 function labeledAmount(text: string, currency: 'NGN' | 'USD'): number | null {
   const match = text.match(
-    /(?:credit|debit|transaction)\s+amount[\s\S]{0,48}?(?:₦|NGN|N|\$|USD)?\s*([\d,]+\.\d{2})/i,
+    /\+?\s*(?:credit|debit|transaction)\s+amount[\s\S]{0,64}?(?:₦|NGN|N|\$|USD|USDT)?\s*([\d,]+\.\d{2})/i,
   )
   if (!match) return null
   return parseAmount(`${currency === 'USD' ? '$' : '₦'}${match[1]}`, currency)
 }
 
 function guessType(text: string): TransactionType {
-  if (/\b(debit|debited|sent|paid|payment|spent|withdraw)\b/i.test(text)) return 'expense'
-  if (/\b(credit|credited|received|incoming)\b/i.test(text)) return 'other_income'
+  if (/\bcredit\s+alert\b|\bcredited\b|\bmoney\s+in\b|\breceived\b|\bincoming\b/i.test(text)) {
+    return 'other_income'
+  }
+  if (/\bdebit\s+alert\b|\bdebited\b|\bsent\b|\bpaid\b|\bpayment\b|\bspent\b|\bwithdraw/i.test(text)) {
+    return 'expense'
+  }
   return 'expense'
 }
 
@@ -209,7 +217,12 @@ const BANK_QUERY = [
   'wema',
   'alat',
   'kuda',
+  'moniepoint',
+  '"monie point"',
   'grey',
+  'rainest',
+  'raines',
+  'usdt',
   'premiumtrust',
   '"premium trust"',
   '"premium bank"',
@@ -241,7 +254,7 @@ async function listMessageIds(accessToken: string, query: string): Promise<strin
 
 export async function fetchTodayGmailTransactions(accessToken: string): Promise<GmailFetchResult> {
   const query = `newer_than:14d (${BANK_QUERY})`
-  const ids = (await listMessageIds(accessToken, query)).slice(0, 40)
+  const ids = (await listMessageIds(accessToken, query)).slice(0, 80)
   const seen = seenIds()
   const rows: ParsedGmailRow[] = []
   const balances: MailedBankBalance[] = []
