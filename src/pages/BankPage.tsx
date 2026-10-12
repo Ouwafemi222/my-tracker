@@ -5,7 +5,8 @@ import { useLedgerFilter } from '../context/LedgerFilterContext'
 import { useTransactions } from '../context/TransactionContext'
 import { TRANSACTION_TYPE_LABELS, type Transaction, type TransactionType } from '../types/transaction'
 import { readAlert } from '../utils/alertDetails'
-import { BANKS, bankFromAccount, formatMinorAmount } from '../utils/banks'
+import { useScreenLock } from '../context/ScreenLockContext'
+import { BANKS, bankFromAccount, maskMinorAmount } from '../utils/banks'
 import { filterTransactionsByLagosRange } from '../utils/calculations'
 import { monthRangeLagos, todayLagosDateString, toLagosDateString } from '../utils/dates'
 
@@ -32,6 +33,7 @@ export function BankPage() {
   const { bankId = '' } = useParams()
   const { transactions: allTransactions } = useTransactions()
   const { visibleTransactions, active } = useLedgerFilter()
+  const { amountsHidden, toggleAmounts } = useScreenLock()
   const transactions = active ? visibleTransactions : allTransactions
   const bank = BANKS.find((item) => item.id === bankId) ?? null
   const isAll = bankId === 'all'
@@ -95,14 +97,21 @@ export function BankPage() {
             {isAll ? 'Every naira account' : `${bank?.label} · ${currency === 'USD' ? 'US dollars' : 'Nigerian naira'}`}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={toggleAmounts}
+          className="rounded-full bg-[#1a3a2f] px-4 py-1.5 text-xs font-semibold text-[#f7f4ee]"
+        >
+          {amountsHidden ? 'Show' : 'Hide'}
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           ['Bank', isAll ? 'All naira banks' : bank?.label],
           ['Currency', currency === 'USD' ? 'USD' : 'NGN'],
-          ['Spent', formatMinorAmount(spent, currency)],
-          ['Money in', formatMinorAmount(received, currency)],
+          ['Spent', maskMinorAmount(amountsHidden, spent, currency)],
+          ['Money in', maskMinorAmount(amountsHidden, received, currency)],
         ].map(([label, value]) => (
           <div key={label} className="rounded-2xl bg-white px-4 py-3 ring-1 ring-[#e2dbce] dark:bg-slate-950 dark:ring-slate-700">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
@@ -185,7 +194,11 @@ export function BankPage() {
                   <td className="px-3 py-2 font-medium">{t.account}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums">
                     {t.type === 'expense' ? '−' : t.type === 'internal_transfer' ? '' : '+'}
-                    {formatMinorAmount(t.amountKobo, bankFromAccount(t.account)?.currency ?? currency)}
+                    {maskMinorAmount(
+                      amountsHidden,
+                      t.amountKobo,
+                      bankFromAccount(t.account)?.currency ?? currency,
+                    )}
                   </td>
                 </tr>
               ))

@@ -8,6 +8,7 @@ import {
 } from 'react'
 
 const PIN_KEY = 'gratitude-screen-pin'
+const HIDDEN_KEY = 'gratitude-amounts-hidden'
 
 async function hashPin(pin: string): Promise<string> {
   const data = new TextEncoder().encode(`gratitude-lock:${pin}`)
@@ -30,7 +31,9 @@ const ScreenLockContext = createContext<ScreenLockValue | null>(null)
 export function ScreenLockProvider({ children }: { children: ReactNode }) {
   const [locked, setLocked] = useState(false)
   const [hasPin, setHasPin] = useState(() => Boolean(localStorage.getItem(PIN_KEY)))
-  const [amountsHidden, setAmountsHidden] = useState(false)
+  const [amountsHidden, setAmountsHidden] = useState(
+    () => localStorage.getItem(HIDDEN_KEY) === '1',
+  )
 
   const lock = useCallback(() => {
     if (!localStorage.getItem(PIN_KEY)) return
@@ -50,17 +53,25 @@ export function ScreenLockProvider({ children }: { children: ReactNode }) {
     return true
   }, [])
 
+  const toggleAmounts = useCallback(() => {
+    setAmountsHidden((current) => {
+      const next = !current
+      localStorage.setItem(HIDDEN_KEY, next ? '1' : '0')
+      return next
+    })
+  }, [])
+
   const value = useMemo(
     () => ({
       locked,
       hasPin,
       amountsHidden,
-      toggleAmounts: () => setAmountsHidden((v) => !v),
+      toggleAmounts,
       lock,
       savePinAndLock,
       tryUnlock,
     }),
-    [locked, hasPin, amountsHidden, lock, savePinAndLock, tryUnlock],
+    [locked, hasPin, amountsHidden, toggleAmounts, lock, savePinAndLock, tryUnlock],
   )
 
   return <ScreenLockContext.Provider value={value}>{children}</ScreenLockContext.Provider>

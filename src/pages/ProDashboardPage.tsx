@@ -21,7 +21,8 @@ import {
 } from '../utils/dates'
 import { formatKoboAsNaira, parseNairaToKoboAllowZero } from '../utils/money'
 import { readAlert } from '../utils/alertDetails'
-import { bankFromAccount, formatMinorAmount } from '../utils/banks'
+import { useScreenLock } from '../context/ScreenLockContext'
+import { bankFromAccount, formatMinorAmount, maskMinorAmount } from '../utils/banks'
 import { getAppBranding } from '../config/appVariant'
 import { formatFriendlyPeriodLabel, lagosGreeting } from '../utils/greeting'
 import {
@@ -53,6 +54,7 @@ export function ProDashboardPage() {
   const brand = getAppBranding()
   const { loadDemoData, settings, setMonthlyBudgetKobo } = useTransactions()
   const { visibleTransactions } = useLedgerFilter()
+  const { amountsHidden } = useScreenLock()
   const transactions = visibleTransactions
   const activeCurrency = 'NGN' as const
   const [mode, setMode] = useState<PeriodMode>('daily')
@@ -188,7 +190,7 @@ export function ProDashboardPage() {
                   : 'text-rose-600 dark:text-rose-400'
               }`}
             >
-              {formatMinorAmount(totals.netCashFlowKobo, activeCurrency)}
+              {maskMinorAmount(amountsHidden, totals.netCashFlowKobo, activeCurrency)}
             </p>
             <p className="mt-1 text-xs text-slate-500">For the selected period</p>
           </div>
@@ -361,8 +363,9 @@ export function ProDashboardPage() {
             }`}
           >
             <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
-              Spent this month: {formatKoboAsNaira(monthSpend)} of{' '}
-              {formatKoboAsNaira(budgetKobo)}
+              Spent this month:{' '}
+              {amountsHidden ? '₦ ••••••' : formatKoboAsNaira(monthSpend)} of{' '}
+              {amountsHidden ? '₦ ••••••' : formatKoboAsNaira(budgetKobo)}
             </p>
             <p
               className={`mt-1 text-sm font-semibold ${
@@ -370,8 +373,8 @@ export function ProDashboardPage() {
               }`}
             >
               {overBudget
-                ? `Over budget by ${formatKoboAsNaira(monthSpend - budgetKobo)}`
-                : `Remaining: ${formatKoboAsNaira(budgetRemaining)}`}
+                ? `Over budget by ${amountsHidden ? '₦ ••••••' : formatKoboAsNaira(monthSpend - budgetKobo)}`
+                : `Remaining: ${amountsHidden ? '₦ ••••••' : formatKoboAsNaira(budgetRemaining)}`}
             </p>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-slate-800">
               <div
@@ -464,11 +467,16 @@ export function ProDashboardPage() {
                         : 'text-emerald-700 dark:text-emerald-400'
                   }`}
                 >
-                  {t.type === 'expense' ? '−' : t.type === 'internal_transfer' ? '' : '+'}
-                  {formatMinorAmount(
-                    t.amountKobo,
-                    bankFromAccount(t.account)?.currency ?? 'NGN',
-                  )}
+                  {amountsHidden
+                    ? maskMinorAmount(
+                        true,
+                        t.amountKobo,
+                        bankFromAccount(t.account)?.currency ?? 'NGN',
+                      )
+                    : `${t.type === 'expense' ? '−' : t.type === 'internal_transfer' ? '' : '+'}${formatMinorAmount(
+                        t.amountKobo,
+                        bankFromAccount(t.account)?.currency ?? 'NGN',
+                      )}`}
                 </p>
               </li>
             ))}

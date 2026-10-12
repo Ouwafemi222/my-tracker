@@ -5,22 +5,16 @@ import { useAuth } from '../context/AuthContext'
 import { useScreenLock } from '../context/ScreenLockContext'
 import { useLedgerFilter } from '../context/LedgerFilterContext'
 import { useProfilePhoto } from '../lib/useProfilePhoto'
-import { BANKS, bankFromAccount, formatMinorAmount } from '../utils/banks'
+import { BANKS, bankFromAccount, maskMinorAmount } from '../utils/banks'
 import { filterTransactionsByLagosRange, totalsForLagosRange } from '../utils/calculations'
 import { monthRangeLagos, todayLagosDateString, toLagosDateString } from '../utils/dates'
-
-function mask(hidden: boolean, amount: number, currency: 'NGN' | 'USD') {
-  if (hidden) return currency === 'USD' ? '$ ••••••' : '₦ ••••••'
-  return formatMinorAmount(amount, currency)
-}
 
 export function MonthWallet() {
   const { profile } = useAuth()
   const { photo, upload, remove } = useProfilePhoto()
   const { visibleTransactions: transactions, filter } = useLedgerFilter()
-  const { hasPin, lock, locked } = useScreenLock()
+  const { hasPin, lock, locked, amountsHidden, toggleAmounts } = useScreenLock()
   const [choosePin, setChoosePin] = useState(false)
-  const [amountsHidden, setAmountsHidden] = useState(false)
 
   const monthId = todayLagosDateString().slice(0, 7)
   const monthLabel = new Intl.DateTimeFormat('en-NG', {
@@ -114,7 +108,7 @@ export function MonthWallet() {
               ) : null}
               <button
                 type="button"
-                onClick={() => setAmountsHidden((hidden) => !hidden)}
+                onClick={toggleAmounts}
                 className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium"
               >
                 {amountsHidden ? 'Show' : 'Hide'}
@@ -126,21 +120,21 @@ export function MonthWallet() {
             {filteredBank ? `Sent this month · ${filteredBank.label}` : 'Spent this month'}
           </p>
           <p className="mt-1 font-serif text-4xl tracking-tight sm:text-5xl">
-            {mask(figuresHidden, monthTotals.totalMoneyOutKobo, currency)}
+            {maskMinorAmount(figuresHidden, monthTotals.totalMoneyOutKobo, currency)}
           </p>
           <p className="mt-2 text-sm text-[#d6ee7a]">
-            Money in {mask(figuresHidden, monthTotals.totalMoneyInKobo, currency)}
+            Money in {maskMinorAmount(figuresHidden, monthTotals.totalMoneyInKobo, currency)}
           </p>
           <p className="mt-4 text-xs uppercase tracking-[0.16em] text-[#c5d6c8]">Today</p>
           <p className="mt-1 text-lg font-semibold">
-            Spent {mask(figuresHidden, todayNaira.totalMoneyOutKobo, 'NGN')}
+            Spent {maskMinorAmount(figuresHidden, todayNaira.totalMoneyOutKobo, 'NGN')}
             <span className="ml-3 text-sm font-normal text-[#d6ee7a]">
-              In {mask(figuresHidden, todayNaira.totalMoneyInKobo, 'NGN')}
+              In {maskMinorAmount(figuresHidden, todayNaira.totalMoneyInKobo, 'NGN')}
             </span>
           </p>
           {todayUsd.totalMoneyOutKobo > 0 || todayUsd.totalMoneyInKobo > 0 ? (
             <p className="mt-1 text-sm text-[#d6ee7a]">
-              Grey today {mask(figuresHidden, todayUsd.totalMoneyOutKobo, 'USD')} spent
+              Grey today {maskMinorAmount(figuresHidden, todayUsd.totalMoneyOutKobo, 'USD')} spent
             </p>
           ) : null}
         </div>
@@ -152,7 +146,7 @@ export function MonthWallet() {
             >
               <p className="text-sm font-semibold">All naira</p>
               <p className="mt-2 text-lg font-bold tabular-nums">
-                {mask(figuresHidden, monthTotals.totalMoneyOutKobo, 'NGN')}
+                {maskMinorAmount(figuresHidden, monthTotals.totalMoneyOutKobo, 'NGN')}
               </p>
               <p className="mt-1 text-[11px] opacity-80">Sent</p>
             </Link>
@@ -164,7 +158,7 @@ export function MonthWallet() {
               >
                 <p className="text-sm font-semibold">{bank.label}</p>
                 <p className="mt-2 text-lg font-bold tabular-nums">
-                  {mask(figuresHidden, spent, bank.currency)}
+                  {maskMinorAmount(figuresHidden, spent, bank.currency)}
                 </p>
                 <p className="mt-1 text-[11px] opacity-80">Sent</p>
               </Link>

@@ -9,12 +9,15 @@ import { useTransactions } from '../context/TransactionContext'
 import { TRANSACTION_TYPE_LABELS } from '../types/transaction'
 import { totalsForLagosRange } from '../utils/calculations'
 import { formatLagosDateTime, todayLagosDateString, toLagosDateString } from '../utils/dates'
+import { useScreenLock } from '../context/ScreenLockContext'
+import { maskMinorAmount } from '../utils/banks'
 import { formatKoboAsNaira } from '../utils/money'
 import { formatFriendlyPeriodLabel, lagosGreeting } from '../utils/greeting'
 
 export function SimpleDashboardPage() {
   const { loadDemoData } = useTransactions()
   const { visibleTransactions: transactions } = useLedgerFilter()
+  const { amountsHidden } = useScreenLock()
   const [selectedDate, setSelectedDate] = useState(todayLagosDateString)
 
   const dayTransactions = useMemo(
@@ -83,7 +86,7 @@ export function SimpleDashboardPage() {
                 : 'text-rose-600 dark:text-rose-400'
             }`}
           >
-            {formatKoboAsNaira(totals.netCashFlowKobo)}
+            {maskMinorAmount(amountsHidden, totals.netCashFlowKobo, 'NGN')}
           </p>
         </div>
       </section>
@@ -175,8 +178,9 @@ export function SimpleDashboardPage() {
                   </p>
                 </div>
                 <p className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-                  {t.type === 'expense' ? '−' : t.type === 'internal_transfer' ? '' : '+'}
-                  {formatKoboAsNaira(t.amountKobo)}
+                  {amountsHidden
+                    ? maskMinorAmount(true, t.amountKobo, 'NGN')
+                    : `${t.type === 'expense' ? '−' : t.type === 'internal_transfer' ? '' : '+'}${formatKoboAsNaira(t.amountKobo)}`}
                 </p>
               </li>
             ))}

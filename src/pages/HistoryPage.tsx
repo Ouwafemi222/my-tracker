@@ -12,7 +12,8 @@ import { Link } from 'react-router-dom'
 import { formatLagosDateTime, toLagosDateString } from '../utils/dates'
 import { formatKoboAsNaira } from '../utils/money'
 import { cleanParty, readAlert } from '../utils/alertDetails'
-import { bankFromAccount, formatMinorAmount } from '../utils/banks'
+import { useScreenLock } from '../context/ScreenLockContext'
+import { bankFromAccount, maskMinorAmount } from '../utils/banks'
 import { categoriesForType } from '../utils/categories'
 import { isProApp } from '../config/appVariant'
 import { UpgradeToProButton } from '../components/UpgradeToProButton'
@@ -28,6 +29,7 @@ const ALL_TYPES: TransactionType[] = [
 export function HistoryPage() {
   const { updateTransaction, deleteTransaction } = useTransactions()
   const { visibleTransactions: transactions } = useLedgerFilter()
+  const { amountsHidden, toggleAmounts } = useScreenLock()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<TransactionType | 'all'>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
@@ -78,13 +80,22 @@ export function HistoryPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-          History
-        </h2>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Search, filter, edit, or export your transactions.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            History
+          </h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            Search, filter, edit, or export your transactions.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={toggleAmounts}
+          className="rounded-full bg-[#1a3a2f] px-4 py-1.5 text-xs font-semibold text-[#f7f4ee]"
+        >
+          {amountsHidden ? 'Show' : 'Hide'}
+        </button>
       </div>
 
       <div className="glass-card grid gap-3 rounded-2xl p-4 sm:grid-cols-2 lg:grid-cols-3 ring-1 ring-slate-200/80 dark:ring-slate-700">
@@ -225,7 +236,7 @@ export function HistoryPage() {
                     <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{t.account}</p>
                   )}
                   <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-white">
-                    {formatMinorAmount(t.amountKobo, bank?.currency ?? 'NGN')}
+                    {maskMinorAmount(amountsHidden, t.amountKobo, bank?.currency ?? 'NGN')}
                   </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
                     {TRANSACTION_TYPE_LABELS[t.type]} · {t.category}

@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import type { Transaction } from '../types/transaction'
 import { readAlert, receiptStory } from '../utils/alertDetails'
-import { bankFromAccount, formatMinorAmount } from '../utils/banks'
+import { useScreenLock } from '../context/ScreenLockContext'
+import { bankFromAccount, maskMinorAmount } from '../utils/banks'
 import { formatLagosDateTime } from '../utils/dates'
 
 export function TransactionReceipt({
@@ -11,6 +12,7 @@ export function TransactionReceipt({
   transaction: Transaction
   onClose: () => void
 }) {
+  const { amountsHidden } = useScreenLock()
   const bank = bankFromAccount(transaction.account)
   const currency = bank?.currency ?? 'NGN'
   const story = receiptStory(
@@ -53,7 +55,7 @@ export function TransactionReceipt({
           <h2 className="mt-2 text-2xl font-semibold leading-snug">{story.title}</h2>
           <p className="mt-5 text-xs uppercase tracking-[0.14em] text-[#c5d6c8]">{story.amountLabel}</p>
           <p className="mt-1 font-serif text-4xl tracking-tight">
-            {formatMinorAmount(transaction.amountKobo, currency)}
+            {maskMinorAmount(amountsHidden, transaction.amountKobo, currency)}
           </p>
         </header>
         <div className="px-5 py-5">

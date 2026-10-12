@@ -62,3 +62,13 @@ export function formatMinorAmount(amount: number, currency: BankCurrency): strin
   }
   return `${sign}₦${major.toLocaleString('en-NG')}.${frac}`
 }
+
+/** Same as formatMinorAmount, or dotted placeholders when amounts are hidden site-wide. */
+export function maskMinorAmount(
+  hidden: boolean,
+  amount: number,
+  currency: BankCurrency = 'NGN',
+): string {
+  if (hidden) return currency === 'USD' ? '$ ••••••' : '₦ ••••••'
+  return formatMinorAmount(amount, currency)
+}

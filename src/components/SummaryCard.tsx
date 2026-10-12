@@ -1,5 +1,6 @@
+import { useScreenLock } from '../context/ScreenLockContext'
 import type { BankCurrency } from '../utils/banks'
-import { formatMinorAmount } from '../utils/banks'
+import { maskMinorAmount } from '../utils/banks'
 
 interface SummaryCardProps {
   title: string
@@ -18,6 +19,7 @@ export function SummaryCard({
   large = false,
   currency = 'NGN',
 }: SummaryCardProps) {
+  const { amountsHidden } = useScreenLock()
   const ring =
     highlight === 'net'
       ? 'ring-2 ring-emerald-500/35 shadow-lg shadow-emerald-500/10'
@@ -42,7 +44,7 @@ export function SummaryCard({
       <p
         className={`mt-2 font-bold tabular-nums tracking-tight ${valueColor} ${large ? 'text-3xl sm:text-4xl' : 'text-2xl'}`}
       >
-        {formatMinorAmount(amountKobo, currency)}
+        {maskMinorAmount(amountsHidden, amountKobo, currency)}
       </p>
       {subtitle ? (
         <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-500">
