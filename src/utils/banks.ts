@@ -11,7 +11,7 @@ export const BANKS: BankAccount[] = [
   { id: 'opay', label: 'OPay', currency: 'NGN', aliases: ['opay', 'o pay'] },
   { id: 'palmpay', label: 'PalmPay', currency: 'NGN', aliases: ['palmpay', 'palm pay'] },
   { id: 'gtbank', label: 'GTBank', currency: 'NGN', aliases: ['gtbank', 'gt bank', 'guaranty trust'] },
-  { id: 'wema', label: 'Wema', currency: 'NGN', aliases: ['wema', 'wema bank'] },
+  { id: 'wema', label: 'Wema', currency: 'NGN', aliases: ['wema', 'wema bank', 'alat'] },
   { id: 'premium', label: 'Premium Bank', currency: 'NGN', aliases: ['premiumtrust', 'premium trust', 'premium bank'] },
   { id: 'kuda', label: 'Kuda', currency: 'NGN', aliases: ['kuda'] },
   {

@@ -29,7 +29,7 @@ export function BalancesPage() {
         </button>
       </div>
       <p className="mt-1 max-w-xl text-sm text-slate-600 dark:text-slate-400">
-        Each figure is the account balance from that bank’s newest email alert. Fetch today’s mail on
+        Each figure is the account balance from that bank’s newest email alert. Fetch recent mail on
         Settings after a transfer, and the cards on the dashboard update from those emails. Hide
         stays on until you press Show anywhere.
       </p>
@@ -72,7 +72,7 @@ export function BalancesPage() {
       </ul>
 
       <Link to="/data" className="inline-block text-sm font-semibold text-emerald-800 hover:underline">
-        Fetch today’s mail
+        Fetch recent mail
       </Link>
     </div>
   )

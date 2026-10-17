@@ -1,9 +1,10 @@
 import { balanceLine, grabField, minorFromBalanceText, packAlert } from '../utils/alertDetails'
-import { canonicalBankLabel, bankFromAccount } from '../utils/banks'
+import { BANKS, type BankAccount } from '../utils/banks'
 import { parseNairaToKobo } from '../utils/money'
 import type { Transaction, TransactionType } from '../types/transaction'
 
 export const GMAIL_ACCOUNT = 'oluwafemipeter14@gmail.com'
+export const GMAIL_LOOKBACK_DAYS = 45
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly'
 const SEEN_KEY = 'gratitude-gmail-seen'
 const TOKEN_KEY = 'gratitude-gmail-token'
@@ -113,7 +114,8 @@ function decodeBody(data: string): string {
 
 function collectText(part: GmailMessage['payload'] | undefined, chunks: string[]) {
   if (!part) return
-  if (part.body?.data && (part.mimeType === 'text/plain' || part.mimeType === 'text/html')) {
+  const mime = part.mimeType?.split(';')[0]?.trim().toLowerCase()
+  if (part.body?.data && (mime === 'text/plain' || mime === 'text/html')) {
     chunks.push(decodeBody(part.body.data))
   }
   for (const child of part.parts ?? []) collectText(child, chunks)
@@ -130,15 +132,48 @@ function toPlain(text: string): string {
   return text
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<img\b[^>]*\balt=["']([^"']+)["'][^>]*>/gi, ' $1 ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|tr|li|h[1-6]|table)>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&#8358;|&naira;/gi, '₦')
+    .replace(/&#x20a6;|&#8358;|&naira;/gi, '₦')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
-    .replace(/\s+/g, ' ')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .trim()
+}
+
+const AMBIGUOUS_ALIASES = new Set(['usdt', 'grey', 'gray', 'o pay'])
+
+function aliasHits(text: string, alias: string): boolean {
+  const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
+  return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, 'i').test(text)
+}
+
+function matchBank(text: string, allowAmbiguous: boolean): BankAccount | null {
+  for (const bank of BANKS) {
+    for (const alias of bank.aliases) {
+      if (!allowAmbiguous && AMBIGUOUS_ALIASES.has(alias)) continue
+      if (aliasHits(text, alias)) return bank
+    }
+  }
+  return null
+}
+
+function detectBank(from: string, subject: string, text: string): BankAccount | null {
+  return matchBank(from, true) ?? matchBank(subject, true) ?? matchBank(text, false)
+}
+
+function stripBalances(text: string): string {
+  return text.replace(
+    /(?:account|available|wallet|current|new|ledger)?\s*balance\s*[:\-|]?\s*(?:₦|NGN|N|\$|USD|USDT)?\s*[\d,]+(?:\.\d{1,2})?/gi,
+    ' ',
+  )
 }
 
 function parseAmount(text: string, currency: 'NGN' | 'USD'): number | null {
-  const cleaned = toPlain(text)
+  const cleaned = stripBalances(toPlain(text))
   const patterns =
     currency === 'USD'
       ? [
@@ -148,7 +183,7 @@ function parseAmount(text: string, currency: 'NGN' | 'USD'): number | null {
         ]
       : [
           /(?:₦|NGN)\s*([\d,]+(?:\.\d{1,2})?)/i,
-          /\bN\s*([\d]{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\b/,
+          /\bN\s*([\d]{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{2})\b/,
           /(?:debited|credited|transfer(?:red)?|sent|received|paid)\s+(?:with\s+)?(?:₦|NGN|N)?\s*([\d,]+(?:\.\d{1,2})?)/i,
         ]
   for (const pattern of patterns) {
@@ -160,22 +195,38 @@ function parseAmount(text: string, currency: 'NGN' | 'USD'): number | null {
   return null
 }
 
-function labeledAmount(text: string, currency: 'NGN' | 'USD'): number | null {
-  const match = text.match(
-    /\+?\s*(?:credit|debit|transaction)\s+amount[\s\S]{0,64}?(?:₦|NGN|N|\$|USD|USDT)?\s*([\d,]+\.\d{2})/i,
-  )
-  if (!match) return null
-  return parseAmount(`${currency === 'USD' ? '$' : '₦'}${match[1]}`, currency)
+function labeledAmount(text: string): number | null {
+  const cleaned = stripBalances(toPlain(text))
+  const patterns = [
+    /\+?\s*(?:credit|debit|transaction)\s+amount\s*[:\-|]?\s*(?:₦|NGN|N|\$|USD|USDT)?\s*([\d,]+\.\d{2})/i,
+    /\b(?:amount|amt)\s*[:\-|]?\s*(?:₦|NGN|N|\$|USD|USDT)?\s*([\d,]+\.\d{2})/i,
+  ]
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern)
+    if (!match) continue
+    const kobo = parseNairaToKobo(match[1].replace(/,/g, ''))
+    if (kobo) return kobo
+  }
+  return null
 }
 
-function guessType(text: string): TransactionType {
-  if (/\bcredit\s+alert\b|\bcredited\b|\bmoney\s+in\b|\breceived\b|\bincoming\b/i.test(text)) {
-    return 'other_income'
+function classifyAlert(text: string): TransactionType | null {
+  const debit = /\bdebit\s+alert\b|\bdebited\b|\bmoney\s+out\b/i.test(text)
+  const credit = /\bcredit\s+alert\b|\bcredited\b|\bmoney\s+in\b/i.test(text)
+  if (debit && !credit) return 'expense'
+  if (credit && !debit) return 'other_income'
+  if (debit && credit) {
+    const debitAt = text.search(/\bdebit\s+alert\b|\bdebited\b|\bmoney\s+out\b/i)
+    const creditAt = text.search(/\bcredit\s+alert\b|\bcredited\b|\bmoney\s+in\b/i)
+    return debitAt <= creditAt ? 'expense' : 'other_income'
   }
-  if (/\bdebit\s+alert\b|\bdebited\b|\bsent\b|\bpaid\b|\bpayment\b|\bspent\b|\bwithdraw/i.test(text)) {
-    return 'expense'
-  }
-  return 'expense'
+  if (/\b(sent|paid|payment|spent|withdraw)\b/i.test(text)) return 'expense'
+  if (/\b(received|incoming)\b/i.test(text)) return 'other_income'
+  return null
+}
+
+function guessType(subject: string, text: string): TransactionType {
+  return classifyAlert(subject) ?? classifyAlert(text.slice(0, 500)) ?? 'expense'
 }
 
 function seenIds(): Set<string> {
@@ -187,8 +238,9 @@ function seenIds(): Set<string> {
   }
 }
 
-function remember(ids: string[]) {
-  const next = [...seenIds(), ...ids].slice(-400)
+export function markGmailMessagesSaved(ids: string[]) {
+  if (ids.length === 0) return
+  const next = [...seenIds(), ...ids].slice(-3000)
   localStorage.setItem(SEEN_KEY, JSON.stringify(next))
 }
 
@@ -206,6 +258,64 @@ export interface MailedBankBalance {
 export interface GmailFetchResult {
   rows: ParsedGmailRow[]
   balances: MailedBankBalance[]
+  scanned: number
+  alreadySaved: number
+  unreadable: number
+  failed: number
+}
+
+export interface ParsedGmailAlert {
+  bankId: string
+  balanceKobo: number | null
+  transaction: Omit<Transaction, 'id'> | null
+}
+
+export function alertIsInWindow(occurredAtIso: string, now = new Date()): boolean {
+  const at = new Date(occurredAtIso).getTime()
+  if (Number.isNaN(at)) return false
+  const age = now.getTime() - at
+  return age <= GMAIL_LOOKBACK_DAYS * 24 * 60 * 60 * 1000 && age > -6 * 60 * 60 * 1000
+}
+
+export function parseGmailAlert(input: {
+  from: string
+  subject: string
+  snippet?: string
+  body?: string
+  occurredAt: string
+}): ParsedGmailAlert | null {
+  const text = toPlain([input.subject, input.from, input.snippet ?? '', input.body ?? ''].join('\n'))
+  const bank = detectBank(input.from, input.subject, text)
+  if (!bank) return null
+  const balanceText = balanceLine(text)
+  const balanceKobo = minorFromBalanceText(balanceText)
+  const amountKobo = labeledAmount(text) ?? parseAmount(text, bank.currency)
+  if (!amountKobo) return { bankId: bank.id, balanceKobo, transaction: null }
+  const type = guessType(input.subject, text)
+  const sender = grabField(text, ["Sender's Name", 'Sender Name', 'Sender'])
+  const recipient = grabField(text, ["Beneficiary's Name", 'Beneficiary', "Recipient's Name", 'Recipient'])
+  const narration = grabField(text, ['Narration', 'Remark', 'Description']) || input.subject || 'Bank alert'
+  return {
+    bankId: bank.id,
+    balanceKobo,
+    transaction: {
+      type,
+      amountKobo,
+      occurredAt: input.occurredAt,
+      category: type === 'expense' ? 'Other expense' : 'Other received',
+      account: bank.label,
+      counterparty: (sender || recipient).slice(0, 200),
+      description: packAlert({
+        narration: narration.slice(0, 180),
+        accountNumber: grabField(text, ['Account Number', 'Account No', 'A/C Number'])
+          .replace(/\D/g, '')
+          .slice(0, 12),
+        balance: balanceText,
+        sender: sender.replace(/^from\s+/i, ''),
+        recipient,
+      }),
+    },
+  }
 }
 
 const BANK_QUERY = [
@@ -219,16 +329,18 @@ const BANK_QUERY = [
   'kuda',
   'moniepoint',
   '"monie point"',
-  'grey',
   'rainest',
   'raines',
-  'usdt',
   'premiumtrust',
   '"premium trust"',
   '"premium bank"',
+  'from:grey.co',
   '"debit alert"',
   '"credit alert"',
-  'transfer',
+  '"debit transaction"',
+  '"credit transaction"',
+  '"transaction notification"',
+  '"transaction alert"',
 ].join(' OR ')
 
 async function listMessageIds(accessToken: string, query: string): Promise<string[]> {
@@ -244,81 +356,119 @@ async function listMessageIds(accessToken: string, query: string): Promise<strin
       localStorage.removeItem(TOKEN_KEY)
       throw new Error('Gmail access expired')
     }
-    if (!listRes.ok) throw new Error('Gmail could not list messages')
+    if (listRes.status === 403) {
+      throw new Error(
+        'Gmail refused access. Disconnect, then connect Gmail again so read-only mail access is granted.',
+      )
+    }
+    if (!listRes.ok) throw new Error(`Gmail could not list messages (${listRes.status})`)
     const list = (await listRes.json()) as GmailList
     for (const item of list.messages ?? []) ids.push(item.id)
     pageToken = list.nextPageToken ?? ''
-  } while (pageToken && ids.length < 150)
-  return ids
+  } while (pageToken && ids.length < 400)
+  return ids.slice(0, 400)
 }
 
-export async function fetchTodayGmailTransactions(accessToken: string): Promise<GmailFetchResult> {
-  const query = `newer_than:14d (${BANK_QUERY})`
-  const ids = (await listMessageIds(accessToken, query)).slice(0, 80)
+function occurredAtOf(message: GmailMessage): string {
+  return message.internalDate
+    ? new Date(Number(message.internalDate)).toISOString()
+    : new Date().toISOString()
+}
+
+async function getMessage(accessToken: string, id: string): Promise<GmailMessage | null> {
+  const messageRes = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (messageRes.status === 401) {
+    localStorage.removeItem(TOKEN_KEY)
+    throw new Error('Gmail access expired')
+  }
+  if (!messageRes.ok) return null
+  return (await messageRes.json()) as GmailMessage
+}
+
+async function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  async function run() {
+    while (cursor < items.length) {
+      const index = cursor
+      cursor += 1
+      results[index] = await worker(items[index])
+    }
+  }
+  const workers = Math.min(limit, items.length)
+  if (workers === 0) return []
+  await Promise.all(Array.from({ length: workers }, () => run()))
+  return results
+}
+
+export async function fetchTodayGmailTransactions(
+  accessToken: string,
+  onProgress?: (message: string) => void,
+): Promise<GmailFetchResult> {
+  const query = `newer_than:${GMAIL_LOOKBACK_DAYS}d (${BANK_QUERY})`
+  onProgress?.(`Fetching mail from the last ${GMAIL_LOOKBACK_DAYS} days…`)
+  const ids = await listMessageIds(accessToken, query)
   const seen = seenIds()
   const rows: ParsedGmailRow[] = []
   const balances: MailedBankBalance[] = []
-  const freshIds: string[] = []
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos' }).format(new Date())
+  let scanned = 0
+  let alreadySaved = 0
+  let unreadable = 0
+  let failed = 0
+  let done = 0
 
-  for (const id of ids) {
-    const already = seen.has(id)
-    const messageRes = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-    )
-    if (!messageRes.ok) continue
-    const message = (await messageRes.json()) as GmailMessage
-    const occurredAt = message.internalDate
-      ? new Date(Number(message.internalDate)).toISOString()
-      : new Date().toISOString()
-    const lagosDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos' }).format(
-      new Date(occurredAt),
-    )
+  const messages = await mapPool(ids, 6, async (id) => {
+    const message = await getMessage(accessToken, id)
+    done += 1
+    if (done === 1 || done === ids.length || done % 10 === 0) {
+      onProgress?.(`Fetching mail… ${done} of ${ids.length}`)
+    }
+    return message
+  })
 
+  for (const message of messages) {
+    if (!message) {
+      failed += 1
+      continue
+    }
+    scanned += 1
+    const occurredAt = occurredAtOf(message)
+    if (!alertIsInWindow(occurredAt)) continue
     const chunks: string[] = []
     collectText(message.payload, chunks)
-    const subject = header(message, 'subject')
-    const from = header(message, 'from')
-    const text = toPlain([subject, from, message.snippet ?? '', ...chunks].join('\n'))
-    const account = canonicalBankLabel([from, subject, text])
-    const bank = account ? bankFromAccount(account) : null
-    if (!bank) continue
-    const stated = minorFromBalanceText(balanceLine(text))
-    if (stated !== null) {
-      balances.push({ bankId: bank.id, amountKobo: stated, occurredAt })
-    }
-    if (already || lagosDay !== today) continue
-    const amountKobo = labeledAmount(text, bank.currency) ?? parseAmount(text, bank.currency)
-    if (!amountKobo) continue
-    const type = guessType(text)
-    const sender = grabField(text, ["Sender's Name", 'Sender Name', 'Sender'])
-    const recipient = grabField(text, ["Beneficiary's Name", 'Beneficiary', "Recipient's Name", 'Recipient'])
-    const narration =
-      grabField(text, ['Narration', 'Remark', 'Description']) || subject || 'Bank alert'
-    rows.push({
-      messageId: message.id,
-      transaction: {
-        type,
-        amountKobo,
-        occurredAt,
-        category: type === 'expense' ? 'Other expense' : 'Other received',
-        account: bank.label,
-        counterparty: (sender || recipient).slice(0, 200),
-        description: packAlert({
-          narration: narration.slice(0, 180),
-          accountNumber: grabField(text, ['Account Number', 'Account No', 'A/C Number']).replace(/\D/g, '').slice(0, 12),
-          balance: balanceLine(text),
-          sender: sender.replace(/^from\s+/i, ''),
-          recipient,
-        }),
-      },
+    const parsed = parseGmailAlert({
+      from: header(message, 'from'),
+      subject: header(message, 'subject'),
+      snippet: message.snippet,
+      body: chunks.join('\n'),
+      occurredAt,
     })
-    freshIds.push(message.id)
+    if (!parsed) {
+      unreadable += 1
+      continue
+    }
+    if (parsed.balanceKobo !== null) {
+      balances.push({ bankId: parsed.bankId, amountKobo: parsed.balanceKobo, occurredAt })
+    }
+    if (seen.has(message.id)) {
+      alreadySaved += 1
+      continue
+    }
+    if (!parsed.transaction) {
+      unreadable += 1
+      continue
+    }
+    rows.push({ messageId: message.id, transaction: parsed.transaction })
   }
 
-  remember(freshIds)
-  return { rows, balances }
+  return { rows, balances, scanned, alreadySaved, unreadable, failed }
 }
 
 declare global {
