@@ -167,66 +167,123 @@ function detectBank(from: string, subject: string, text: string): BankAccount | 
 
 function stripBalances(text: string): string {
   return text.replace(
-    /(?:account|available|wallet|current|new|ledger)?\s*balance\s*[:\-|]?\s*(?:₦|NGN|N|\$|USD|USDT)?\s*[\d,]+(?:\.\d{1,2})?/gi,
+    /(?:account|available|wallet|current|new|ledger|closing|opening)?\s*bal(?:ance)?\s*[:\-|]?\s*(?:₦|NGN|N|\$|USD|USDT)?\s*[\d,]+(?:\.\d{1,2})?/gi,
     ' ',
   )
 }
 
-function parseAmount(text: string, currency: 'NGN' | 'USD'): number | null {
-  const cleaned = stripBalances(toPlain(text))
-  const patterns =
-    currency === 'USD'
-      ? [
-          /\$\s*([\d,]+(?:\.\d{1,2})?)/,
-          /(?:USD|USDT)\s*([\d,]+(?:\.\d{1,2})?)/i,
-          /([\d,]+(?:\.\d{1,2})?)\s*(?:USD|USDT)\b/i,
-        ]
-      : [
-          /(?:₦|NGN)\s*([\d,]+(?:\.\d{1,2})?)/i,
-          /\bN\s*([\d]{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{2})\b/,
-          /(?:debited|credited|transfer(?:red)?|sent|received|paid)\s+(?:with\s+)?(?:₦|NGN|N)?\s*([\d,]+(?:\.\d{1,2})?)/i,
-        ]
-  for (const pattern of patterns) {
-    const match = cleaned.match(pattern)
-    if (!match) continue
-    const kobo = parseNairaToKobo(match[1].replace(/,/g, ''))
-    if (kobo) return kobo
-  }
-  return null
+function withoutBoilerplate(text: string): string {
+  return text
+    .replace(/credit\s*(?:\/|or)\s*debit/gi, ' ')
+    .replace(/debit\s*(?:\/|or)\s*credit/gi, ' ')
+    .replace(/not a (?:credit|debit)/gi, ' ')
+    .replace(/if you (?:did not |didn't )?(?:receive|received) this/gi, ' ')
 }
 
-function labeledAmount(text: string): number | null {
-  const cleaned = stripBalances(toPlain(text))
-  const patterns = [
-    /\+?\s*(?:credit|debit|transaction)\s+amount\s*[:\-|]?\s*(?:₦|NGN|N|\$|USD|USDT)?\s*([\d,]+\.\d{2})/i,
-    /\b(?:amount|amt)\s*[:\-|]?\s*(?:₦|NGN|N|\$|USD|USDT)?\s*([\d,]+\.\d{2})/i,
-  ]
-  for (const pattern of patterns) {
-    const match = cleaned.match(pattern)
-    if (!match) continue
-    const kobo = parseNairaToKobo(match[1].replace(/,/g, ''))
-    if (kobo) return kobo
-  }
-  return null
+function koboOf(raw: string | undefined): number | null {
+  if (!raw) return null
+  return parseNairaToKobo(raw.replace(/,/g, ''))
 }
 
-function classifyAlert(text: string): TransactionType | null {
-  const debit = /\bdebit\s+alert\b|\bdebited\b|\bmoney\s+out\b/i.test(text)
-  const credit = /\bcredit\s+alert\b|\bcredited\b|\bmoney\s+in\b/i.test(text)
+function firstKobo(text: string, pattern: RegExp): number | null {
+  return koboOf(text.match(pattern)?.[1])
+}
+
+const MONEY = String.raw`(?:₦|NGN|N|\$|USD|USDT)?\s*([\d,]+\.\d{2})`
+
+function explicitDirection(text: string): TransactionType | null {
+  const debit = /\b(?:debit(?:\s+alert|\s+transaction)?|debited|money\s+out)\b/i.test(text)
+  const credit = /\b(?:credit(?:\s+alert|\s+transaction)?|credited|money\s+in)\b/i.test(text)
   if (debit && !credit) return 'expense'
   if (credit && !debit) return 'other_income'
-  if (debit && credit) {
-    const debitAt = text.search(/\bdebit\s+alert\b|\bdebited\b|\bmoney\s+out\b/i)
-    const creditAt = text.search(/\bcredit\s+alert\b|\bcredited\b|\bmoney\s+in\b/i)
-    return debitAt <= creditAt ? 'expense' : 'other_income'
+  return null
+}
+
+function layoutDirection(text: string): TransactionType | null {
+  const hits = [...text.matchAll(/(debit|credit)\b[\s\S]{0,80}?(?:₦|NGN|N|\$|USD|USDT)?\s*([\d,]+\.\d{2})/gi)]
+  let debit = false
+  let credit = false
+  for (const hit of hits) {
+    const amount = koboOf(hit[2])
+    if (!amount) continue
+    if (hit[1].toLowerCase() === 'debit') debit = true
+    else credit = true
   }
-  if (/\b(sent|paid|payment|spent|withdraw)\b/i.test(text)) return 'expense'
-  if (/\b(received|incoming)\b/i.test(text)) return 'other_income'
+  if (debit && !credit) return 'expense'
+  if (credit && !debit) return 'other_income'
   return null
 }
 
 function guessType(subject: string, text: string): TransactionType {
-  return classifyAlert(subject) ?? classifyAlert(text.slice(0, 500)) ?? 'expense'
+  const subjectDir = explicitDirection(withoutBoilerplate(subject))
+  if (subjectDir) return subjectDir
+
+  const body = withoutBoilerplate(toPlain(text))
+  const typed = body.match(/transaction\s*type\s*[:\-]?\s*(debit|credit|dr|cr)\b/i)
+  if (typed) return /^d/i.test(typed[1]) ? 'expense' : 'other_income'
+  const layout = layoutDirection(body)
+  if (layout) return layout
+  if (/(?:₦|NGN|N|\$)?\s*[\d,]+\.\d{2}\s*DR\b|\bDR\s*[:\-]\s*(?:₦|NGN|N|\$)?\s*[\d,]+\.\d{2}/i.test(body)) {
+    return 'expense'
+  }
+  if (/(?:₦|NGN|N|\$)?\s*[\d,]+\.\d{2}\s*CR\b|\bCR\s*[:\-]\s*(?:₦|NGN|N|\$)?\s*[\d,]+\.\d{2}/i.test(body)) {
+    return 'other_income'
+  }
+  const head = body.slice(0, 900)
+  if (/\b(sent|paid|payment|spent|withdraw|purchase|airtime|pos)\b/i.test(head)) return 'expense'
+  if (/\b(received|incoming)\b/i.test(head)) return 'other_income'
+  return 'expense'
+}
+
+function currencyAmounts(text: string): { kobo: number; index: number }[] {
+  const found: { kobo: number; index: number }[] = []
+  const re = /(?:₦|NGN|\$|USD|USDT)\s*([\d,]+(?:\.\d{1,2})?)|\bN\s*([\d,]+\.\d{2})\b/gi
+  for (const match of text.matchAll(re)) {
+    const amount = koboOf(match[1] ?? match[2])
+    if (amount) found.push({ kobo: amount, index: match.index ?? 0 })
+  }
+  return found
+}
+
+function pickAmount(text: string, direction: TransactionType, currency: 'NGN' | 'USD'): number | null {
+  const plain = stripBalances(withoutBoilerplate(toPlain(text)))
+  if (currency === 'USD') {
+    const usd =
+      firstKobo(plain, /([\d,]+\.\d{2})\s*(?:USD|USDT)\b/i) ??
+      firstKobo(plain, /(?:\$|USD|USDT)\s*([\d,]+(?:\.\d{1,2})?)/i)
+    if (usd) return usd
+  }
+
+  const labeled =
+    direction === 'expense'
+      ? firstKobo(plain, new RegExp(String.raw`debit(?:\s+alert)?(?:\s+(?:amount|amt))?\s*[:\-]?\s*${MONEY}`, 'i')) ??
+        firstKobo(plain, new RegExp(String.raw`(?:amount|amt)\s*(?:debited)?\s*[:\-]\s*${MONEY}`, 'i')) ??
+        firstKobo(plain, /(?:₦|NGN|N|\$)?\s*([\d,]+\.\d{2})\s*DR\b/i) ??
+        firstKobo(plain, new RegExp(String.raw`\bDR\s*[:\-]?\s*${MONEY}`, 'i'))
+      : firstKobo(plain, new RegExp(String.raw`credit(?:\s+alert)?(?:\s+(?:amount|amt))?\s*[:\-]?\s*${MONEY}`, 'i')) ??
+        firstKobo(plain, new RegExp(String.raw`(?:amount|amt)\s*(?:credited)?\s*[:\-]\s*${MONEY}`, 'i')) ??
+        firstKobo(plain, /(?:₦|NGN|N|\$)?\s*([\d,]+\.\d{2})\s*CR\b/i) ??
+        firstKobo(plain, /\+\s*(?:₦|NGN|\$|USD|USDT)?\s*([\d,]+\.\d{2})/i)
+  if (labeled) return labeled
+
+  const verb = firstKobo(
+    plain,
+    /(?:debited|credited|transfer(?:red)?|sent|received|paid)(?:\s+(?:with|of|to|from))?\s+(?:₦|NGN|N|\$)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+  )
+  if (verb) return verb
+
+  const bareLabel = firstKobo(plain, /\b(?:amount|amt)\s*[:\-]\s*([\d,]+\.\d{2})/i)
+  if (bareLabel) return bareLabel
+
+  const found = currencyAmounts(plain)
+  const word =
+    direction === 'expense' ? /\bdebit\b|\bdr\b|\bsent\b|\bpaid\b|\bpayment\b/i : /\bcredit\b|\bcr\b|\breceived\b/i
+  const at = word.exec(plain)
+  if (at) {
+    const after = found.find((item) => item.index >= at.index)
+    if (after) return after.kobo
+  }
+  return found[0]?.kobo ?? null
 }
 
 function seenIds(): Set<string> {
@@ -289,9 +346,9 @@ export function parseGmailAlert(input: {
   if (!bank) return null
   const balanceText = balanceLine(text)
   const balanceKobo = minorFromBalanceText(balanceText)
-  const amountKobo = labeledAmount(text) ?? parseAmount(text, bank.currency)
-  if (!amountKobo) return { bankId: bank.id, balanceKobo, transaction: null }
   const type = guessType(input.subject, text)
+  const amountKobo = pickAmount(text, type, bank.currency)
+  if (!amountKobo) return { bankId: bank.id, balanceKobo, transaction: null }
   const sender = grabField(text, ["Sender's Name", 'Sender Name', 'Sender'])
   const recipient = grabField(text, ["Beneficiary's Name", 'Beneficiary', "Recipient's Name", 'Recipient'])
   const narration = grabField(text, ['Narration', 'Remark', 'Description']) || input.subject || 'Bank alert'
@@ -343,7 +400,7 @@ const BANK_QUERY = [
   '"transaction alert"',
 ].join(' OR ')
 
-async function listMessageIds(accessToken: string, query: string): Promise<string[]> {
+async function listMessageIds(accessToken: string, query: string, limit: number): Promise<string[]> {
   const ids: string[] = []
   let pageToken = ''
   do {
@@ -365,8 +422,26 @@ async function listMessageIds(accessToken: string, query: string): Promise<strin
     const list = (await listRes.json()) as GmailList
     for (const item of list.messages ?? []) ids.push(item.id)
     pageToken = list.nextPageToken ?? ''
-  } while (pageToken && ids.length < 400)
-  return ids.slice(0, 400)
+  } while (pageToken && ids.length < limit)
+  return ids.slice(0, limit)
+}
+
+async function listBankMessageIds(accessToken: string): Promise<string[]> {
+  const window = `newer_than:${GMAIL_LOOKBACK_DAYS}d`
+  const [debits, credits, banks] = await Promise.all([
+    listMessageIds(
+      accessToken,
+      `${window} ("debit alert" OR "debit transaction" OR "transaction type: debit" OR debited OR "you sent" OR "payment successful")`,
+      200,
+    ),
+    listMessageIds(
+      accessToken,
+      `${window} ("credit alert" OR "credit transaction" OR "transaction type: credit" OR credited OR "money received")`,
+      200,
+    ),
+    listMessageIds(accessToken, `${window} (${BANK_QUERY})`, 250),
+  ])
+  return [...new Set([...debits, ...credits, ...banks])].slice(0, 500)
 }
 
 function occurredAtOf(message: GmailMessage): string {
@@ -412,9 +487,8 @@ export async function fetchTodayGmailTransactions(
   accessToken: string,
   onProgress?: (message: string) => void,
 ): Promise<GmailFetchResult> {
-  const query = `newer_than:${GMAIL_LOOKBACK_DAYS}d (${BANK_QUERY})`
-  onProgress?.(`Fetching mail from the last ${GMAIL_LOOKBACK_DAYS} days…`)
-  const ids = await listMessageIds(accessToken, query)
+  onProgress?.(`Fetching debits and credits from the last ${GMAIL_LOOKBACK_DAYS} days…`)
+  const ids = await listBankMessageIds(accessToken)
   const seen = seenIds()
   const rows: ParsedGmailRow[] = []
   const balances: MailedBankBalance[] = []

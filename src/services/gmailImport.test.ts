@@ -102,6 +102,39 @@ describe('parseGmailAlert', () => {
     expect(parsed?.transaction?.amountKobo).toBe(40_000)
   })
 
+  it('keeps a debit when the mail also shows a zero credit', () => {
+    const parsed = alert({
+      from: 'OPay <no-reply@opay.com>',
+      subject: 'Transaction Notification',
+      body: 'Credit\n₦0.00\nDebit\n₦1,500.00\nAvailable Balance: NGN 20,000.00',
+    })
+    expect(parsed?.transaction?.type).toBe('expense')
+    expect(parsed?.transaction?.amountKobo).toBe(150_000)
+    expect(parsed?.balanceKobo).toBe(2_000_000)
+  })
+
+  it('reads a DR amount and ignores the balance abbreviation', () => {
+    const parsed = alert({
+      from: 'GTBank <alert@gtbank.com>',
+      subject: 'Transaction Alert',
+      body: 'Amt: NGN 2,000.00 DR\nBal: NGN 9,000.00\nDescription: POS purchase',
+    })
+    expect(parsed?.transaction?.type).toBe('expense')
+    expect(parsed?.transaction?.amountKobo).toBe(200_000)
+    expect(parsed?.balanceKobo).toBe(900_000)
+  })
+
+  it('reads a transfer debit that does not say debit alert', () => {
+    const parsed = alert({
+      from: 'PalmPay <noreply@palmpay.com>',
+      subject: 'Payment successful',
+      body: 'You transferred ₦800.00 to JANE DOE',
+    })
+    expect(parsed?.bankId).toBe('palmpay')
+    expect(parsed?.transaction?.type).toBe('expense')
+    expect(parsed?.transaction?.amountKobo).toBe(80_000)
+  })
+
   it('reads an amount split across HTML lines', () => {
     const parsed = alert({
       from: 'GTBank <alert@gtbank.com>',

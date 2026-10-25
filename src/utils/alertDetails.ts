@@ -127,6 +127,7 @@ export function balanceLine(text: string): string {
     'Wallet Balance',
     'Current Balance',
     'New Balance',
+    'Bal',
   ])
 }
 

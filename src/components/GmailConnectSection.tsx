@@ -14,9 +14,11 @@ import {
 
 function summarizeFetch(fetched: GmailFetchResult): string {
   const days = GMAIL_LOOKBACK_DAYS
+  const debits = fetched.rows.filter((row) => row.transaction.type === 'expense').length
+  const credits = fetched.rows.length - debits
   const added =
     fetched.rows.length > 0
-      ? `Added ${fetched.rows.length} transaction${fetched.rows.length === 1 ? '' : 's'} from the last ${days} days.`
+      ? `Added ${debits} debit${debits === 1 ? '' : 's'} and ${credits} credit${credits === 1 ? '' : 's'} from the last ${days} days.`
       : fetched.scanned === 0
         ? `No bank emails were found in the last ${days} days on this Google account.`
         : fetched.alreadySaved > 0 && fetched.unreadable === 0
