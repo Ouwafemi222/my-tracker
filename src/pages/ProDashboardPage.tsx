@@ -304,7 +304,7 @@ export function ProDashboardPage() {
           currency={activeCurrency}
         />
         <SummaryCard
-          title="Other money received"
+          title="Credits"
           amountKobo={totals.otherReceivedKobo}
           highlight="in"
           currency={activeCurrency}
@@ -319,7 +319,7 @@ export function ProDashboardPage() {
         <SummaryCard
           title="Total money out"
           amountKobo={totals.totalMoneyOutKobo}
-          subtitle="Expenses only"
+          subtitle="Debits only"
           highlight="out"
           currency={activeCurrency}
         />

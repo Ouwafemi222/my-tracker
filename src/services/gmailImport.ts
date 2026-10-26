@@ -180,6 +180,26 @@ function withoutBoilerplate(text: string): string {
     .replace(/if you (?:did not |didn't )?(?:receive|received) this/gi, ' ')
 }
 
+function normalizeSigns(text: string): string {
+  return text.replace(/[\u2212\u2013\u2014]/g, '-')
+}
+
+function signedMovement(text: string): { kobo: number; direction: TransactionType } | null {
+  const plain = normalizeSigns(stripBalances(withoutBoilerplate(toPlain(text))))
+  const patterns = [
+    /(?:^|[\s:(])([+-])\s*(?:₦|NGN|N|\$|USD|USDT)?\s*([\d,]+\.\d{2})/g,
+    /(?:₦|NGN|N|\$|USD|USDT)\s*([+-])\s*([\d,]+\.\d{2})/g,
+  ]
+  for (const pattern of patterns) {
+    for (const match of plain.matchAll(pattern)) {
+      const amount = koboOf(match[2])
+      if (!amount) continue
+      return { kobo: amount, direction: match[1] === '-' ? 'expense' : 'other_income' }
+    }
+  }
+  return null
+}
+
 function koboOf(raw: string | undefined): number | null {
   if (!raw) return null
   return parseNairaToKobo(raw.replace(/,/g, ''))
@@ -319,6 +339,8 @@ export interface GmailFetchResult {
   alreadySaved: number
   unreadable: number
   failed: number
+  /** Debits already saved under the wrong type, so the ledger can correct them. */
+  corrections: ParsedGmailRow[]
 }
 
 export interface ParsedGmailAlert {
@@ -346,8 +368,9 @@ export function parseGmailAlert(input: {
   if (!bank) return null
   const balanceText = balanceLine(text)
   const balanceKobo = minorFromBalanceText(balanceText)
-  const type = guessType(input.subject, text)
-  const amountKobo = pickAmount(text, type, bank.currency)
+  const signed = signedMovement(text)
+  const type = signed?.direction ?? guessType(input.subject, text)
+  const amountKobo = signed?.kobo ?? pickAmount(text, type, bank.currency)
   if (!amountKobo) return { bankId: bank.id, balanceKobo, transaction: null }
   const sender = grabField(text, ["Sender's Name", 'Sender Name', 'Sender'])
   const recipient = grabField(text, ["Beneficiary's Name", 'Beneficiary', "Recipient's Name", 'Recipient'])
@@ -428,7 +451,7 @@ async function listMessageIds(accessToken: string, query: string, limit: number)
 
 async function listBankMessageIds(accessToken: string): Promise<string[]> {
   const window = `newer_than:${GMAIL_LOOKBACK_DAYS}d`
-  const [debits, credits, banks] = await Promise.all([
+  const [debits, credits, banks, mainAccounts] = await Promise.all([
     listMessageIds(
       accessToken,
       `${window} ("debit alert" OR "debit transaction" OR "transaction type: debit" OR debited OR "you sent" OR "payment successful")`,
@@ -440,8 +463,9 @@ async function listBankMessageIds(accessToken: string): Promise<string[]> {
       200,
     ),
     listMessageIds(accessToken, `${window} (${BANK_QUERY})`, 250),
+    listMessageIds(accessToken, `${window} (moniepoint OR kuda OR opay)`, 300),
   ])
-  return [...new Set([...debits, ...credits, ...banks])].slice(0, 500)
+  return [...new Set([...debits, ...credits, ...banks, ...mainAccounts])].slice(0, 600)
 }
 
 function occurredAtOf(message: GmailMessage): string {
@@ -492,6 +516,7 @@ export async function fetchTodayGmailTransactions(
   const seen = seenIds()
   const rows: ParsedGmailRow[] = []
   const balances: MailedBankBalance[] = []
+  const corrections: ParsedGmailRow[] = []
   let scanned = 0
   let alreadySaved = 0
   let unreadable = 0
@@ -533,6 +558,9 @@ export async function fetchTodayGmailTransactions(
     }
     if (seen.has(message.id)) {
       alreadySaved += 1
+      if (parsed.transaction?.type === 'expense') {
+        corrections.push({ messageId: message.id, transaction: parsed.transaction })
+      }
       continue
     }
     if (!parsed.transaction) {
@@ -542,7 +570,7 @@ export async function fetchTodayGmailTransactions(
     rows.push({ messageId: message.id, transaction: parsed.transaction })
   }
 
-  return { rows, balances, scanned, alreadySaved, unreadable, failed }
+  return { rows, balances, scanned, alreadySaved, unreadable, failed, corrections }
 }
 
 declare global {

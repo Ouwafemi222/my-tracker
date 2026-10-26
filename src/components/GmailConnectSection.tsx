@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useBankBalances } from '../context/BankBalanceContext'
 import { useTransactions } from '../context/TransactionContext'
+import type { Transaction } from '../types/transaction'
 import {
   GMAIL_ACCOUNT,
   GMAIL_LOOKBACK_DAYS,
@@ -10,15 +11,58 @@ import {
   gmailIsConnected,
   markGmailMessagesSaved,
   type GmailFetchResult,
+  type ParsedGmailRow,
 } from '../services/gmailImport'
 
-function summarizeFetch(fetched: GmailFetchResult): string {
+function minuteKey(occurredAt: string): string {
+  return occurredAt.slice(0, 16)
+}
+
+function settleAlert(
+  ledger: Transaction[],
+  next: Omit<Transaction, 'id'>,
+  addTransaction: (t: Omit<Transaction, 'id'>) => void,
+  updateTransaction: (t: Transaction) => void,
+): 'added' | 'flipped' | 'kept' {
+  const same = ledger.filter(
+    (item) =>
+      item.account === next.account &&
+      item.amountKobo === next.amountKobo &&
+      minuteKey(item.occurredAt) === minuteKey(next.occurredAt),
+  )
+  if (next.type === 'expense') {
+    if (same.some((item) => item.type === 'expense')) return 'kept'
+    const income = same.find((item) => item.type === 'other_income' || item.type === 'earned_income')
+    if (income) {
+      const corrected = { ...income, type: 'expense' as const, category: 'Other expense' }
+      updateTransaction(corrected)
+      Object.assign(income, corrected)
+      return 'flipped'
+    }
+    addTransaction(next)
+    ledger.push({ ...next, id: `new-${ledger.length}` })
+    return 'added'
+  }
+  if (same.length > 0) return 'kept'
+  addTransaction(next)
+  ledger.push({ ...next, id: `new-${ledger.length}` })
+  return 'added'
+}
+
+function summarizeFetch(fetched: GmailFetchResult, addedDebits: number, addedCredits: number, flipped: number): string {
   const days = GMAIL_LOOKBACK_DAYS
-  const debits = fetched.rows.filter((row) => row.transaction.type === 'expense').length
-  const credits = fetched.rows.length - debits
   const added =
-    fetched.rows.length > 0
-      ? `Added ${debits} debit${debits === 1 ? '' : 's'} and ${credits} credit${credits === 1 ? '' : 's'} from the last ${days} days.`
+    addedDebits + addedCredits + flipped > 0
+      ? [
+          addedDebits + addedCredits > 0
+            ? `Added ${addedDebits} debit${addedDebits === 1 ? '' : 's'} and ${addedCredits} credit${addedCredits === 1 ? '' : 's'} from the last ${days} days.`
+            : '',
+          flipped > 0
+            ? `Marked ${flipped} earlier alert${flipped === 1 ? '' : 's'} as debit.`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
       : fetched.scanned === 0
         ? `No bank emails were found in the last ${days} days on this Google account.`
         : fetched.alreadySaved > 0 && fetched.unreadable === 0
@@ -34,7 +78,7 @@ function summarizeFetch(fetched: GmailFetchResult): string {
 }
 
 export function GmailConnectSection() {
-  const { addTransaction } = useTransactions()
+  const { addTransaction, updateTransaction, transactions } = useTransactions()
   const { setMailedBalance } = useBankBalances()
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? ''
   const [busy, setBusy] = useState(false)
@@ -61,13 +105,23 @@ export function GmailConnectSection() {
         token = await ensureGmailAccess(clientId)
         fetched = await fetchTodayGmailTransactions(token, report)
       }
-      for (const row of fetched.rows) addTransaction(row.transaction)
+      const ledger = transactions.map((item) => ({ ...item }))
+      let addedDebits = 0
+      let addedCredits = 0
+      let flipped = 0
+      const incoming: ParsedGmailRow[] = [...fetched.rows, ...fetched.corrections]
+      for (const row of incoming) {
+        const result = settleAlert(ledger, row.transaction, addTransaction, updateTransaction)
+        if (result === 'flipped') flipped += 1
+        else if (result === 'added' && row.transaction.type === 'expense') addedDebits += 1
+        else if (result === 'added') addedCredits += 1
+      }
       markGmailMessagesSaved(fetched.rows.map((row) => row.messageId))
       for (const item of fetched.balances) {
         setMailedBalance(item.bankId, item.amountKobo, item.occurredAt)
       }
-      setNoteTone(fetched.rows.length > 0 ? 'ok' : 'warn')
-      setNote(summarizeFetch(fetched))
+      setNoteTone(addedDebits + addedCredits + flipped > 0 ? 'ok' : 'warn')
+      setNote(summarizeFetch(fetched, addedDebits, addedCredits, flipped))
     } catch (error) {
       setNoteTone('err')
       setNote(error instanceof Error ? error.message : 'Gmail import failed')

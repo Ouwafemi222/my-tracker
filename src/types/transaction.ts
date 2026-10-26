@@ -19,8 +19,8 @@ export interface Transaction {
 
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   earned_income: 'Earned income',
-  other_income: 'Other money received',
-  expense: 'Expense',
+  other_income: 'Credit',
+  expense: 'Debit',
   internal_transfer: 'Internal transfer',
 }
 

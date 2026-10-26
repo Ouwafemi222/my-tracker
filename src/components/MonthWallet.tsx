@@ -117,7 +117,7 @@ export function MonthWallet() {
           </div>
 
               <p className="mt-8 text-xs uppercase tracking-[0.16em] text-[#c5d6c8]">
-            {filteredBank ? `Sent this month · ${filteredBank.label}` : 'Spent this month'}
+            {filteredBank ? `Debited this month · ${filteredBank.label}` : 'Debited this month'}
           </p>
           <p className="mt-1 font-serif text-4xl tracking-tight sm:text-5xl">
             {maskMinorAmount(figuresHidden, monthTotals.totalMoneyOutKobo, currency)}
@@ -127,7 +127,7 @@ export function MonthWallet() {
           </p>
           <p className="mt-4 text-xs uppercase tracking-[0.16em] text-[#c5d6c8]">Today</p>
           <p className="mt-1 text-lg font-semibold">
-            Spent {maskMinorAmount(figuresHidden, todayNaira.totalMoneyOutKobo, 'NGN')}
+            Debit {maskMinorAmount(figuresHidden, todayNaira.totalMoneyOutKobo, 'NGN')}
             <span className="ml-3 text-sm font-normal text-[#d6ee7a]">
               In {maskMinorAmount(figuresHidden, todayNaira.totalMoneyInKobo, 'NGN')}
             </span>
@@ -148,7 +148,7 @@ export function MonthWallet() {
               <p className="mt-2 text-lg font-bold tabular-nums">
                 {maskMinorAmount(figuresHidden, monthTotals.totalMoneyOutKobo, 'NGN')}
               </p>
-              <p className="mt-1 text-[11px] opacity-80">Sent</p>
+              <p className="mt-1 text-[11px] opacity-80">Debit</p>
             </Link>
             {byBank.map(({ bank, spent }) => (
               <Link
@@ -160,7 +160,7 @@ export function MonthWallet() {
                 <p className="mt-2 text-lg font-bold tabular-nums">
                   {maskMinorAmount(figuresHidden, spent, bank.currency)}
                 </p>
-                <p className="mt-1 text-[11px] opacity-80">Sent</p>
+                <p className="mt-1 text-[11px] opacity-80">Debit</p>
               </Link>
             ))}
           </div>

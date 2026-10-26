@@ -117,7 +117,7 @@ export function SimpleDashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard title="Earned income" amountKobo={totals.earnedIncomeKobo} highlight="in" />
         <SummaryCard
-          title="Other money received"
+          title="Credits"
           amountKobo={totals.otherReceivedKobo}
           highlight="in"
         />
@@ -130,7 +130,7 @@ export function SimpleDashboardPage() {
         <SummaryCard
           title="Total money out"
           amountKobo={totals.totalMoneyOutKobo}
-          subtitle="Expenses only"
+          subtitle="Debits only"
           highlight="out"
         />
         <SummaryCard

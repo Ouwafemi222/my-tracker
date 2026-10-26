@@ -135,6 +135,47 @@ describe('parseGmailAlert', () => {
     expect(parsed?.transaction?.amountKobo).toBe(80_000)
   })
 
+  it('reads a Moniepoint minus amount as a debit', () => {
+    const parsed = alert({
+      from: 'Moniepoint <noreply@moniepoint.com>',
+      subject: 'Transaction Notification',
+      body: 'Amount: -NGN 25,000.00\nTransaction Type: Transfer\nBeneficiary: ACME LTD\nAvailable Balance: NGN 100,000.00\nNarration: Goods',
+    })
+    expect(parsed?.bankId).toBe('moniepoint')
+    expect(parsed?.transaction?.type).toBe('expense')
+    expect(parsed?.transaction?.amountKobo).toBe(2_500_000)
+    expect(parsed?.transaction?.counterparty).toContain('ACME LTD')
+    expect(parsed?.balanceKobo).toBe(10_000_000)
+  })
+
+  it('reads a Kuda minus amount as money out', () => {
+    const parsed = alert({
+      from: 'Kuda <hello@kuda.com>',
+      subject: 'Money out',
+      body: '−₦4,000.00\nTo: JANE DOE',
+    })
+    expect(parsed?.bankId).toBe('kuda')
+    expect(parsed?.transaction?.type).toBe('expense')
+    expect(parsed?.transaction?.amountKobo).toBe(400_000)
+  })
+
+  it('reads an OPay plus amount as a credit and a spaced minus as a debit', () => {
+    const credit = alert({
+      from: 'OPay <no-reply@opay.com>',
+      subject: 'Transaction Notification',
+      body: '+₦5,000.00\nSender: JOHN DOE',
+    })
+    const debit = alert({
+      from: 'OPay <no-reply@opay.com>',
+      subject: 'Transaction Notification',
+      body: '- ₦1,200.00\nRecipient: JANE DOE',
+    })
+    expect(credit?.transaction?.type).toBe('other_income')
+    expect(credit?.transaction?.amountKobo).toBe(500_000)
+    expect(debit?.transaction?.type).toBe('expense')
+    expect(debit?.transaction?.amountKobo).toBe(120_000)
+  })
+
   it('reads an amount split across HTML lines', () => {
     const parsed = alert({
       from: 'GTBank <alert@gtbank.com>',

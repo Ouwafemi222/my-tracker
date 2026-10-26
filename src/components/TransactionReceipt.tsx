@@ -55,6 +55,7 @@ export function TransactionReceipt({
           <h2 className="mt-2 text-2xl font-semibold leading-snug">{story.title}</h2>
           <p className="mt-5 text-xs uppercase tracking-[0.14em] text-[#c5d6c8]">{story.amountLabel}</p>
           <p className="mt-1 font-serif text-4xl tracking-tight">
+            {transaction.type === 'expense' ? '−' : transaction.type === 'internal_transfer' ? '' : '+'}
             {maskMinorAmount(amountsHidden, transaction.amountKobo, currency)}
           </p>
         </header>
